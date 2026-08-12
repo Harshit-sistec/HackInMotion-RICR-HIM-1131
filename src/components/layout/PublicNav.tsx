@@ -20,6 +20,8 @@ export function PublicNav() {
   const [activeHref, setActiveHref] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const isDark = theme === 'dark';
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -47,25 +49,27 @@ export function PublicNav() {
     scrollToElement(href);
   };
 
+  const headerClass = scrolled
+    ? isDark
+      ? 'glass-dark border-b border-white/10 py-2 shadow-lg shadow-black/30 backdrop-blur-xl'
+      : 'bg-white/90 border-b border-slate-200/60 py-2 shadow-sm shadow-slate-100/50 backdrop-blur-xl'
+    : 'bg-transparent py-4';
+
   return (
     <>
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className={`fixed top-0 z-50 w-full transition-all duration-500 ${
-          scrolled
-            ? 'glass-dark border-b border-white/10 py-2 shadow-lg shadow-black/30 backdrop-blur-xl'
-            : 'bg-transparent py-4'
-        }`}
+        className={`fixed top-0 z-50 w-full transition-all duration-500 ${headerClass}`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link to="/" className="inline-flex items-center gap-2 font-display font-bold tracking-tight">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 via-violet-500 to-accent-500 text-white shadow-glow">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--nova-primary)] to-[#3B82F6] text-white shadow-glow">
               <Sparkles size={18} />
             </span>
-            <span className="text-xl text-white">Nova</span>
+            <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Cadence</span>
           </Link>
 
           {/* Desktop nav */}
@@ -76,7 +80,11 @@ export function PublicNav() {
                 <button
                   key={item.href}
                   onClick={() => scrollTo(item.href)}
-                  className="group relative px-3 py-2 text-sm font-medium text-ink-300 transition hover:text-white"
+                  className={`group relative px-3 py-2 text-sm font-medium transition ${
+                    isDark
+                      ? 'text-ink-300 hover:text-white'
+                      : 'text-slate-600 hover:text-slate-950'
+                  }`}
                 >
                   {item.label}
                   <motion.span
@@ -97,7 +105,9 @@ export function PublicNav() {
             <button
               onClick={toggleTheme}
               aria-label="Toggle theme"
-              className="rounded-lg p-2 text-ink-300 transition hover:bg-white/10 hover:text-white"
+              className={`rounded-lg p-2 transition ${
+                isDark ? 'text-ink-300 hover:bg-white/10 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+              }`}
             >
               <AnimatePresence mode="wait">
                 <motion.span
@@ -115,7 +125,9 @@ export function PublicNav() {
 
             {!onLanding && (
               <Link to="/login" className="hidden sm:block">
-                <span className="rounded-xl px-4 py-2 text-sm font-semibold text-ink-200 transition hover:text-white">
+                <span className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  isDark ? 'text-ink-200 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}>
                   Log in
                 </span>
               </Link>
@@ -134,7 +146,9 @@ export function PublicNav() {
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="rounded-lg p-2 text-ink-300 transition hover:bg-white/10 hover:text-white md:hidden"
+              className={`rounded-lg p-2 transition ${
+                isDark ? 'text-ink-300 hover:bg-white/10 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              } md:hidden`}
             >
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -149,20 +163,28 @@ export function PublicNav() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-16 z-40 w-full glass-dark px-4 py-4 md:hidden"
+            className={`fixed top-16 z-40 w-full px-4 py-4 md:hidden border-b ${
+              isDark
+                ? 'glass-dark border-white/10'
+                : 'bg-white border-slate-200/60 shadow-sm'
+            }`}
           >
             <nav className="flex flex-col gap-1">
               {NAV_ITEMS.map((item) => (
                 <button
                   key={item.href}
                   onClick={() => scrollTo(item.href)}
-                  className="rounded-lg px-4 py-3 text-left text-sm font-medium text-ink-200 transition hover:bg-white/10 hover:text-white"
+                  className={`rounded-lg px-4 py-3 text-left text-sm font-medium transition ${
+                    isDark ? 'text-ink-200 hover:bg-white/10 hover:text-white' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
+                  }`}
                 >
                   {item.label}
                 </button>
               ))}
               {!onLanding && (
-                <Link to="/login" className="rounded-lg px-4 py-3 text-sm font-medium text-ink-200 hover:text-white">
+                <Link to="/login" className={`rounded-lg px-4 py-3 text-sm font-medium transition ${
+                  isDark ? 'text-ink-200 hover:text-white' : 'text-slate-700 hover:text-slate-950'
+                }`}>
                   Log in
                 </Link>
               )}

@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Mail, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { AuthShell, AuthSwitchLink } from '@/components/layout/AuthShell';
 import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 import { authService } from '@/services/authService';
 
 export function ForgotPassword() {
@@ -21,15 +21,27 @@ export function ForgotPassword() {
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
-    } finally {
       setLoading(false);
     }
   };
+
+  // Compute overall authentication state for visual protagonist (AI Core)
+  let authState: 'idle' | 'email-typing' | 'password-focus' | 'submitting' | 'success' | 'error' = 'idle';
+  if (sent) {
+    authState = 'success';
+  } else if (loading) {
+    authState = 'submitting';
+  } else if (error) {
+    authState = 'error';
+  } else if (email.length > 0) {
+    authState = 'email-typing';
+  }
 
   return (
     <AuthShell
       title="Reset your password"
       subtitle="We'll send a reset link to your email."
+      authState={authState}
       footer={
         <>
           Remembered it? <AuthSwitchLink to="/login" label="Back to sign in" />
@@ -37,18 +49,27 @@ export function ForgotPassword() {
       }
     >
       {sent ? (
-        <div className="rounded-2xl border border-accent-200 bg-accent-50 p-6 text-center dark:border-accent-800 dark:bg-accent-900/30">
-          <CheckCircle2 size={36} className="mx-auto text-accent-600 dark:text-accent-400" />
-          <h3 className="mt-3 font-display text-lg font-semibold text-ink-900 dark:text-ink-50">Check your inbox</h3>
-          <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">
-            If an account exists for <span className="font-semibold">{email}</span>, a reset link is on its way.
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="rounded-2xl border border-primary-500/20 bg-primary-500/5 p-6 text-center backdrop-blur-md"
+        >
+          <CheckCircle2 size={36} className="mx-auto text-primary-400 animate-pulse" />
+          <h3 className="mt-3 font-display text-lg font-bold text-white">Check your inbox</h3>
+          <p className="mt-2 text-xs text-ink-300 leading-relaxed">
+            If an account exists for <span className="font-semibold text-primary-300">{email}</span>, a reset link is on its way.
           </p>
-          <Link to="/login" className="mt-5 inline-block">
-            <Button variant="outline">
-              <ArrowLeft size={16} /> Back to sign in
-            </Button>
+          <Link to="/login" className="mt-6 inline-block">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-bold text-white transition hover:bg-white/10"
+            >
+              <ArrowLeft size={14} /> Back to sign in
+            </motion.button>
           </Link>
-        </div>
+        </motion.div>
       ) : (
         <form onSubmit={submit} className="space-y-4" noValidate>
           <Input
@@ -60,16 +81,54 @@ export function ForgotPassword() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             leftIcon={<Mail size={16} />}
+            premium
             required
           />
+          
           {error && (
-            <div className="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700 dark:border-error-700 dark:bg-error-700/20 dark:text-error-200">
-              {error}
-            </div>
+            <motion.div
+              initial={{ x: -6 }}
+              animate={{ x: [0, -8, 8, -6, 6, 0] }}
+              transition={{ duration: 0.4 }}
+              className="rounded-xl border border-error-500/30 bg-error-500/10 px-4 py-3 text-xs font-semibold text-error-400 flex items-center gap-2"
+            >
+              <AlertCircle size={14} className="text-error-400 shrink-0" />
+              <span>{error}</span>
+            </motion.div>
           )}
-          <Button type="submit" fullWidth size="lg" loading={loading}>
-            Send reset link
-          </Button>
+
+          <motion.button
+            whileHover={{ scale: 1.02, boxShadow: '0 0 20px rgba(99,102,241,0.35)' }}
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            disabled={loading}
+            className="relative w-full h-11 rounded-xl bg-gradient-to-r from-primary-500 via-violet-500 to-accent-500 text-sm font-bold text-white overflow-hidden shadow-glow flex items-center justify-center gap-1.5 transition-all duration-300 disabled:opacity-50"
+          >
+            {/* Shine Sweep Overlay */}
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full"
+              animate={{ x: ['100%', '-100%'] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'linear' }}
+            />
+
+            {loading ? (
+              <span className="flex gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-white animate-bounce" />
+                <span className="h-1.5 w-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0.15s' }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0.3s' }} />
+              </span>
+            ) : (
+              <>
+                <span>Send Reset Link</span>
+                <motion.span
+                  animate={{ x: [0, 4, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  →
+                </motion.span>
+              </>
+            )}
+          </motion.button>
         </form>
       )}
     </AuthShell>

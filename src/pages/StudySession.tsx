@@ -191,7 +191,7 @@ export function StudySession() {
                       </div>
                       <h3 className="font-display text-sm font-semibold text-ink-900 dark:text-ink-50">AI Tutor</h3>
                     </div>
-                    <p className="text-sm text-ink-600 dark:text-ink-300">Stuck on a concept? Ask Nova for help.</p>
+                    <p className="text-sm text-ink-600 dark:text-ink-300">Stuck on a concept? Ask Cadence for help.</p>
                     <Link to="/app/tutor" className="mt-3 inline-block">
                       <Button size="sm" variant="outline"><MessageSquare size={14} /> Ask a question</Button>
                     </Link>

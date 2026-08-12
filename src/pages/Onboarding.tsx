@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -13,6 +13,9 @@ import {
   TrendingUp,
   AlertTriangle,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
@@ -262,6 +265,182 @@ function StepHeader({ title, subtitle }: { title: string; subtitle: string }) {
   );
 }
 
+function CalendarPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (date: string) => void;
+}) {
+  const today = new Date();
+  
+  const initialDate = (() => {
+    if (value) {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return new Date();
+  })();
+
+  const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth());
+  const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const firstWeekday = new Date(currentYear, currentMonth, 1).getDay();
+
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(prev => prev - 1);
+    } else {
+      setCurrentMonth(prev => prev - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(prev => prev + 1);
+    } else {
+      setCurrentMonth(prev => prev + 1);
+    }
+  };
+
+  const handleDaySelect = (day: number) => {
+    const yyyy = currentYear;
+    const mm = String(currentMonth + 1).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    onChange(`${yyyy}-${mm}-${dd}`);
+  };
+
+  const isSelected = (day: number) => {
+    if (!value) return false;
+    const dateObj = new Date(value);
+    return (
+      dateObj.getFullYear() === currentYear &&
+      dateObj.getMonth() === currentMonth &&
+      dateObj.getDate() === day
+    );
+  };
+
+  const isPast = (day: number) => {
+    const dateObj = new Date(currentYear, currentMonth, day);
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return dateObj < todayMidnight;
+  };
+
+  const gridCells = [];
+  for (let i = 0; i < firstWeekday; i++) {
+    gridCells.push(<div key={`empty-${i}`} className="h-8 w-8" />);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const disabled = isPast(d);
+    const active = isSelected(d);
+    
+    gridCells.push(
+      <button
+        key={`day-${d}`}
+        type="button"
+        disabled={disabled}
+        onClick={() => handleDaySelect(d)}
+        className={`h-8 w-8 rounded-lg text-xs font-semibold flex items-center justify-center transition-all ${
+          active
+            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+            : disabled
+            ? 'text-ink-200 dark:text-ink-800 cursor-not-allowed opacity-40'
+            : 'text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800'
+        }`}
+      >
+        {d}
+      </button>
+    );
+  }
+
+  const remainingText = (() => {
+    if (!value) return '';
+    const target = new Date(value);
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const diffTime = target.getTime() - todayMidnight.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'In past';
+    if (diffDays === 0) return 'Today!';
+    if (diffDays === 1) return 'Tomorrow';
+    return `${diffDays} days left`;
+  })();
+
+  const formattedSelected = useMemo(() => {
+    if (!value) return 'No deadline selected';
+    const dateObj = new Date(value);
+    return dateObj.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }, [value]);
+
+  return (
+    <div className="rounded-2xl border border-ink-200 dark:border-ink-800/80 p-4 bg-white/30 dark:bg-ink-950/20 backdrop-blur-md">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-semibold text-ink-700 dark:text-ink-300 flex items-center gap-1.5">
+          <CalendarIcon size={14} className="text-blue-600" />
+          Target Exam Date
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={handlePrevMonth}
+            className="p-1 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-500 dark:text-ink-400"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span className="text-[11px] font-bold text-ink-700 dark:text-ink-300 min-w-[85px] text-center">
+            {months[currentMonth].slice(0, 3)} {currentYear}
+          </span>
+          <button
+            type="button"
+            onClick={handleNextMonth}
+            className="p-1 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-500 dark:text-ink-400"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 mb-1 text-center">
+        {weekdays.map(d => (
+          <div key={d} className="text-[9px] font-bold text-ink-400 dark:text-ink-500 uppercase">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 justify-items-center">
+        {gridCells}
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-ink-100 dark:border-ink-800/60 flex items-center justify-between gap-1">
+        <div className="text-left">
+          <p className="text-[9px] font-bold text-ink-400 dark:text-ink-500 uppercase tracking-wide">Target Deadline</p>
+          <p className="text-xs font-semibold text-ink-800 dark:text-ink-200">{value ? formattedSelected : 'Select above'}</p>
+        </div>
+        {value && remainingText && (
+          <span className="inline-flex rounded-full bg-blue-50 dark:bg-blue-950/40 px-2.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30">
+            {remainingText}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Step1({
   goalType,
   setGoalType,
@@ -291,7 +470,7 @@ function Step1({
 }) {
   return (
     <Card padding="lg">
-      <StepHeader title="What do you want to achieve?" subtitle="Tell Nova your goal so we can build the right plan." />
+      <StepHeader title="What do you want to achieve?" subtitle="Tell Cadence your goal so we can build the right plan." />
       <div className="space-y-3">
         {GOAL_TYPES.map((g) => (
           <button
@@ -337,12 +516,10 @@ function Step1({
           value={topics}
           onChange={(e) => setTopics(e.target.value)}
         />
-        <Input
-          label="Deadline"
-          type="date"
-          value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-        />
+        <div className="space-y-1.5 text-left">
+          <label className="text-xs font-semibold text-ink-700 dark:text-ink-200">Deadline</label>
+          <CalendarPicker value={deadline} onChange={setDeadline} />
+        </div>
       </div>
 
       <div className="mt-6 flex justify-end">
@@ -668,7 +845,7 @@ function Analysis({
 
       <div className="mt-6 rounded-xl2 bg-gradient-to-br from-primary-50 to-accent-50 p-5 text-center dark:from-primary-900/30 dark:to-accent-900/30">
         <p className="text-sm text-ink-600 dark:text-ink-300">
-          Nova will prioritize your critical and weak topics first, then reinforce strong areas with spaced repetition.
+          Cadence will prioritize your critical and weak topics first, then reinforce strong areas with spaced repetition.
         </p>
       </div>
 

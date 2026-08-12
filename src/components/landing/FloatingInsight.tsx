@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'framer-motion';
 import { TrendingUp, AlertTriangle, ArrowRight, Flame, Brain } from 'lucide-react';
 
 const INSIGHTS = [
@@ -51,10 +51,34 @@ const INSIGHTS = [
 ];
 
 export function FloatingInsight() {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const springConfig = { stiffness: 80, damping: 20 };
+  const springX = useSpring(mouseX, springConfig);
+  const springY = useSpring(mouseY, springConfig);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const { innerWidth, innerHeight } = window;
+      mouseX.set((e.clientX / innerWidth) - 0.5);
+      mouseY.set((e.clientY / innerHeight) - 0.5);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [mouseX, mouseY]);
+
   return (
     <>
       {INSIGHTS.map((insight, i) => (
-        <FloatingCard key={i} insight={insight} index={i} />
+        <FloatingCard
+          key={i}
+          insight={insight}
+          index={i}
+          springX={springX}
+          springY={springY}
+        />
       ))}
     </>
   );
@@ -63,9 +87,13 @@ export function FloatingInsight() {
 function FloatingCard({
   insight,
   index,
+  springX,
+  springY,
 }: {
   insight: (typeof INSIGHTS)[number];
   index: number;
+  springX: MotionValue<number>;
+  springY: MotionValue<number>;
 }) {
   const [labelIndex, setLabelIndex] = useState(0);
 
@@ -77,10 +105,25 @@ function FloatingCard({
     return () => clearInterval(interval);
   }, [insight.labels.length]);
 
+  // Different multipliers for multi-layered parallax depth
+  const multipliers = [
+    { x: -35, y: -25 }, // Brain
+    { x: 25, y: -30 },  // TrendingUp
+    { x: -20, y: 35 },  // AlertTriangle
+    { x: 30, y: 20 },   // ArrowRight
+    { x: -30, y: -15 }, // Flame
+  ];
+
+  const mult = multipliers[index] || { x: 20, y: 20 };
+
+  const parallaxX = useTransform(springX, [-0.5, 0.5], [mult.x, -mult.x]);
+  const parallaxY = useTransform(springY, [-0.5, 0.5], [mult.y, -mult.y]);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8, y: 20, filter: 'blur(6px)' }}
       animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+      style={{ x: parallaxX, y: parallaxY }}
       transition={{ delay: 0.9 + insight.delay * 0.25, duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
       className={`absolute z-20 hidden md:block ${insight.className}`}
     >

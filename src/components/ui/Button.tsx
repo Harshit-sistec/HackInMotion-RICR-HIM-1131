@@ -1,5 +1,5 @@
-import { forwardRef, type ButtonHTMLAttributes } from 'react';
-import { motion } from 'framer-motion';
+import { forwardRef, useRef, type ButtonHTMLAttributes } from 'react';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger' | 'success' | 'gradient';
@@ -59,15 +59,58 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   },
   ref,
 ) {
-  const classes = `inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${VARIANTS[variant]} ${SIZES[size]} ${fullWidth ? 'w-full' : ''} ${magnetic || variant === 'gradient' ? 'magnetic-btn' : ''} ${className}`;
+  const localRef = useRef<HTMLButtonElement>(null);
+
+  // Set up motion values for magnetic translation
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  // Smooth springs for translation
+  const springConfig = { stiffness: 120, damping: 12, mass: 0.1 };
+  const springX = useSpring(x, springConfig);
+  const springY = useSpring(y, springConfig);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!magnetic || disabled || loading || !localRef.current) return;
+    const { clientX, clientY } = e;
+    const { left, top, width, height } = localRef.current.getBoundingClientRect();
+    const centerX = left + width / 2;
+    const centerY = top + height / 2;
+    const distanceX = clientX - centerX;
+    const distanceY = clientY - centerY;
+
+    // Pull button up to 16px towards the cursor
+    x.set(distanceX * 0.35);
+    y.set(distanceY * 0.35);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  const setRefs = (node: HTMLButtonElement) => {
+    // @ts-ignore
+    localRef.current = node;
+    if (typeof ref === 'function') {
+      ref(node);
+    } else if (ref) {
+      ref.current = node;
+    }
+  };
+
+  // transition-colors prevents transform lag from conflicting CSS transition rules
+  const classes = `inline-flex items-center justify-center rounded-xl font-semibold transition-colors duration-200 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${VARIANTS[variant]} ${SIZES[size]} ${fullWidth ? 'w-full' : ''} ${magnetic || variant === 'gradient' ? 'magnetic-btn' : ''} ${className}`;
 
   return (
     <MotionButton
-      ref={ref}
+      ref={setRefs}
       disabled={disabled || loading}
-      whileHover={disabled || loading ? undefined : { scale: 1.03 }}
+      whileHover={disabled || loading ? undefined : { scale: 1.025 }}
       whileTap={disabled || loading ? undefined : { scale: 0.97 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+      style={magnetic && !disabled && !loading ? { x: springX, y: springY } : undefined}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       className={classes}
       {...props}
     >

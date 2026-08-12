@@ -37,7 +37,7 @@ export function Settings() {
         <div className="grid gap-5 lg:grid-cols-2">
           {/* Appearance */}
           <Card padding="lg">
-            <CardHeader title="Appearance" subtitle="Customize how Nova looks" />
+            <CardHeader title="Appearance" subtitle="Customize how Cadence looks" />
             <button
               onClick={toggleTheme}
               className="flex w-full items-center justify-between rounded-xl border border-ink-200 p-4 transition hover:border-ink-300 dark:border-ink-700"
