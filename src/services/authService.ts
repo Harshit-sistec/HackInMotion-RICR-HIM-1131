@@ -1,68 +1,83 @@
 import type { AuthCredentials, SignupPayload, User } from '@/types';
-import { DEMO_USER } from '@/data/mockData';
-import { clearStorage, readStorage, writeStorage } from '@/utils/storage';
-import { delay, randomId } from '@/utils/async';
+import { fetchApi } from './api';
 
+const TOKEN_KEY = 'nova_auth_token';
 const AUTH_KEY = 'nova_auth_user';
 
-/**
- * Mock auth layer. Swap these implementations for calls to
- * POST /api/auth/login, /api/auth/signup, /api/auth/forgot-password
- * once the Node/Express/JWT backend is ready — the function
- * signatures are designed to stay stable across that swap.
- */
 export const authService = {
   async login({ email, password }: AuthCredentials): Promise<User> {
-    await delay(700);
-    if (!email.includes('@')) throw new Error('Enter a valid email address.');
-    if (password.length < 6) throw new Error('Incorrect email or password.');
-
-    const isDemo = email.trim().toLowerCase() === DEMO_USER.email;
-    const user: User = isDemo ? DEMO_USER : { ...DEMO_USER, id: randomId('user'), email, name: email.split('@')[0] };
-    writeStorage(AUTH_KEY, user);
-    return user;
-  },
-
-  async signup({ name, email, password }: SignupPayload): Promise<User> {
-    await delay(900);
-    if (!name.trim()) throw new Error('Please enter your name.');
-    if (!email.includes('@')) throw new Error('Enter a valid email address.');
-    if (password.length < 8) throw new Error('Password must be at least 8 characters.');
-
-    const user: User = {
-      id: randomId('user'),
-      name: name.trim(),
-      email,
+    const data = await fetchApi('/auth/signin', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    
+    const user = {
+      id: data.user.id,
+      email: data.user.email,
+      name: data.user.user_metadata?.full_name || email.split('@')[0],
       avatarColor: '#17B891',
-      createdAt: new Date().toISOString(),
+      createdAt: data.user.created_at,
       onboardingComplete: false,
       dailyStudyTargetMinutes: 60,
-      preferredStudyTime: 'evening',
+      preferredStudyTime: 'evening' as const,
       streakCount: 0,
       xp: 0,
       level: 1,
     };
-    writeStorage(AUTH_KEY, user);
+    
+    localStorage.setItem(TOKEN_KEY, data.session.access_token);
+    localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+    return user;
+  },
+
+  async signup({ name, email, password }: SignupPayload): Promise<User> {
+    const data = await fetchApi('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        email, 
+        password,
+        options: { data: { full_name: name } }
+      }),
+    });
+    
+    const user = {
+      id: data.user.id,
+      email: data.user.email,
+      name: data.user.user_metadata?.full_name || name,
+      avatarColor: '#17B891',
+      createdAt: data.user.created_at,
+      onboardingComplete: false,
+      dailyStudyTargetMinutes: 60,
+      preferredStudyTime: 'evening' as const,
+      streakCount: 0,
+      xp: 0,
+      level: 1,
+    };
+
+    localStorage.setItem(TOKEN_KEY, data.session.access_token);
+    localStorage.setItem(AUTH_KEY, JSON.stringify(user));
     return user;
   },
 
   async forgotPassword(email: string): Promise<{ message: string }> {
-    await delay(800);
-    if (!email.includes('@')) throw new Error('Enter a valid email address.');
     return { message: `If an account exists for ${email}, a reset link is on its way.` };
   },
 
   getCurrentUser(): User | null {
-    return readStorage<User | null>(AUTH_KEY, null);
+    try {
+      const stored = localStorage.getItem(AUTH_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   },
 
   async updateUser(patch: Partial<User>): Promise<User> {
-    await delay(400);
-    const current = readStorage<User | null>(AUTH_KEY, null);
+    const current = this.getCurrentUser();
     if (!current) throw new Error('Not signed in.');
     const updated = { ...current, ...patch };
-    writeStorage(AUTH_KEY, updated);
-    return updated;
+    localStorage.setItem(AUTH_KEY, JSON.stringify(updated));
+    return updated as User;
   },
 
   async completeOnboarding(): Promise<User> {
@@ -70,6 +85,7 @@ export const authService = {
   },
 
   logout(): void {
-    clearStorage(AUTH_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(AUTH_KEY);
   },
 };

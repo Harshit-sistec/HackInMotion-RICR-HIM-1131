@@ -4,6 +4,21 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --nova-bg: #F8FAFC;
+  --nova-surface: #FFFFFF;
+  --nova-text: #0F172A;
+  --nova-text-secondary: #475569;
+  --nova-text-muted: #94A3B8;
+  --nova-border: #E2E8F0;
+  --nova-primary: #2563EB;
+  --nova-primary-hover: #1D4ED8;
+  --nova-primary-soft: #EFF6FF;
+  --nova-success: #16A34A;
+  --nova-warning: #F59E0B;
+  --nova-error: #DC2626;
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -13,7 +28,7 @@ html.lenis-active {
 }
 
 html.lenis-active body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {

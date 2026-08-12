@@ -55,18 +55,22 @@ function AppRoutes() {
   );
 }
 
+import { ErrorBoundary } from '@/ErrorBoundary';
+
 export default function App() {
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <AppDataProvider>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </AppDataProvider>
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <AppDataProvider>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </AppDataProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

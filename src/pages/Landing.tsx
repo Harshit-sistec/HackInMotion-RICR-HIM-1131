@@ -1,5 +1,6 @@
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import {
   ArrowRight,
   Play,
@@ -15,7 +16,6 @@ import {
   Zap,
   BookOpen,
   Mic,
-  CheckCircle2,
   TrendingUp,
   Clock,
   AlertCircle,
@@ -29,13 +29,14 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { AnimatedBackground } from '@/components/landing/AnimatedBackground';
-import { LiveStudyDashboard } from '@/components/landing/LiveStudyDashboard';
-import { FloatingInsight } from '@/components/landing/FloatingInsight';
-import { AIInsightPanel } from '@/components/landing/AIInsightPanel';
 import { PremiumCard } from '@/components/landing/PremiumCard';
 import { SectionReveal, RevealItem, SectionHeading } from '@/components/landing/SectionReveal';
 import { useLenis } from '@/hooks/useLenis';
-import { fadeUp, staggerContainer, blurIn, viewportConfig } from '@/lib/animations';
+import { useTheme } from '@/store/ThemeContext';
+import { viewportConfig } from '@/lib/animations';
+import { ScrollyTimeline } from '@/components/landing/ScrollyTimeline';
+import { AICore } from '@/components/landing/AICore';
+import { MouseBubble } from '@/components/landing/MouseBubble';
 
 const PROBLEM_CARDS = [
   { icon: Users, title: 'Same plan for everyone', text: 'Classrooms move at one pace. If you fall behind or race ahead, the plan ignores it.' },
@@ -45,9 +46,9 @@ const PROBLEM_CARDS = [
 ];
 
 const STEPS = [
-  { icon: Target, title: 'Set Your Goal', text: 'Tell Nova what you\'re preparing for, your subjects, and your exam deadline.' },
+  { icon: Target, title: 'Set Your Goal', text: 'Tell Cadence what you\'re preparing for, your subjects, and your exam deadline.' },
   { icon: Brain, title: 'Assess Your Knowledge', text: 'A short diagnostic finds exactly where you\'re strong and where you need work.' },
-  { icon: Sparkles, title: 'Get Your AI Study Plan', text: 'Nova builds a day-by-day plan tuned to your level, time, and weak topics.' },
+  { icon: Sparkles, title: 'Get Your AI Study Plan', text: 'Cadence builds a day-by-day plan tuned to your level, time, and weak topics.' },
   { icon: TrendingUp, title: 'Learn + Track + Adapt', text: 'Study, take quizzes, and watch your plan re-adapt as you improve.' },
 ];
 
@@ -55,7 +56,7 @@ const FEATURES = [
   { icon: CalendarRange, title: 'Personalized Study Plans', text: 'Day-by-day sessions built from your goal, deadline, and available hours.' },
   { icon: MessageSquare, title: 'AI Study Assistant', text: 'Ask questions in plain language and get explanations tuned to your level.' },
   { icon: Brain, title: 'Knowledge Assessment', text: 'Short diagnostics pinpoint strong, weak, and critical topics in minutes.' },
-  { icon: RefreshCw, title: 'Adaptive Re-planning', text: 'Missed a session? Nova reshuffles your plan so you still land on target.' },
+  { icon: RefreshCw, title: 'Adaptive Re-planning', text: 'Missed a session? Cadence reshuffles your plan so you still land on target.' },
   { icon: ClipboardList, title: 'Mock Tests', text: 'Generate quizzes by subject, topic, and difficulty — then see your weak spots.' },
   { icon: BarChart3, title: 'Progress Tracking', text: 'Visualize study time, mastery, and accuracy trends week over week.' },
   { icon: Zap, title: 'Spaced Repetition', text: 'Topics you struggle with come back at the right interval so they stick.' },
@@ -70,19 +71,17 @@ const PERSONALIZATION = [
   { label: 'Previous performance', value: 'Accuracy trend' },
 ];
 
-const heroStagger = staggerContainer(0.12, 0.1);
-
 export function Landing() {
   useLenis(true);
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   return (
-    <div className="dark relative min-h-screen overflow-x-hidden bg-ink-975 text-ink-100">
+    <div className={`${theme} relative min-h-screen overflow-x-clip ${isDark ? 'bg-ink-975 text-ink-100' : 'bg-slate-50 text-slate-800'} transition-colors duration-300`}>
+      <MouseBubble />
       <AnimatedBackground />
       <PublicNav />
-      <Hero />
-      <Problem />
-      <HowItWorks />
-      <Personalization />
+      <ScrollyJourney />
       <Features />
       <ProgressPreview />
       <AIPreview />
@@ -93,163 +92,259 @@ export function Landing() {
   );
 }
 
-function Hero() {
-  return (
-    <section className="relative overflow-hidden pt-20">
-      <div className="mx-auto max-w-7xl px-4 pb-16 pt-12 sm:px-6 sm:pt-20 lg:px-8 lg:pb-24">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          <motion.div initial="hidden" animate="visible" variants={heroStagger}>
-            <motion.div variants={fadeUp}>
-              <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary-400/30 bg-primary-500/10 px-3 py-1 text-xs font-semibold text-primary-300">
-                <Sparkles size={12} /> AI-powered learning
-              </span>
-            </motion.div>
-            <motion.h1
-              variants={fadeUp}
-              className="font-display text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl"
-            >
-              Your Study Plan.
-              <br />
-              <span className="gradient-text-aurora">Your Pace. Your Path.</span>
-            </motion.h1>
-            <motion.p variants={fadeUp} className="mt-5 max-w-xl text-lg text-ink-300">
-              Nova builds a personalized study plan from your knowledge level, weak topics, available time, and exam
-              deadline — then adapts it every day as you learn.
-            </motion.p>
-            <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
-              <Link to="/signup">
-                <Button size="lg" variant="gradient" magnetic>
-                  Build My Study Plan <ArrowRight size={18} />
-                </Button>
-              </Link>
-              <Link to="/app">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-white/20 bg-white/5 text-white hover:border-white/30 hover:bg-white/10"
-                >
-                  <Play size={16} /> Explore Demo
-                </Button>
-              </Link>
-            </motion.div>
-            <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-ink-400">
-              {['No credit card', '2-minute setup', 'Adaptive re-planning'].map((item) => (
-                <span key={item} className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 size={16} className="text-accent-400" /> {item}
-                </span>
-              ))}
-            </motion.div>
-          </motion.div>
+function ScrollyJourney() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
-          <div className="relative flex justify-center lg:justify-end">
-            <FloatingInsight />
-            <LiveStudyDashboard />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ['start start', 'end end']
+  });
 
-function Problem() {
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 90, damping: 25, restDelta: 0.001 });
+
+  // Scroll to targeted learning stage index
+  const handleStageClick = (index: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const containerTop = rect.top + scrollTop;
+    const scrollRange = rect.height - window.innerHeight;
+    const targetScroll = containerTop + (index * 0.25) * scrollRange;
+    window.scrollTo({
+      top: targetScroll,
+      behavior: 'smooth'
+    });
+  };
+
+  const STAGES = [
+    { num: '01', label: 'Understand You' },
+    { num: '02', label: 'Find Weak Spots' },
+    { num: '03', label: 'Build Your Plan' },
+    { num: '04', label: 'Learn & Practice' },
+    { num: '05', label: 'Your Path' }
+  ];
+
+  const baseBg = isDark ? '#080910' : '#F8FAFC';
+  const glowColor1 = isDark ? 'rgba(99, 102, 241, 0.14)' : 'rgba(37, 99, 235, 0.05)';
+  const glowColor2 = isDark ? 'rgba(139, 92, 246, 0.14)' : 'rgba(37, 99, 235, 0.05)';
+  const glowColor3 = isDark ? 'rgba(34, 211, 238, 0.11)' : 'rgba(37, 99, 235, 0.05)';
+  const glowColor4 = isDark ? 'rgba(6, 182, 212, 0.14)' : 'rgba(37, 99, 235, 0.05)';
+  const glowColor5 = isDark ? 'rgba(99, 102, 241, 0.18)' : 'rgba(37, 99, 235, 0.05)';
+
+  // Map progress to distinct ambient backgrounds
+  const bgOpacity1 = useTransform(smoothProgress, [0, 0.16, 0.2], [1, 1, 0]);
+  const bgOpacity2 = useTransform(smoothProgress, [0.15, 0.22, 0.38, 0.44], [0, 1, 1, 0]);
+  const bgOpacity3 = useTransform(smoothProgress, [0.38, 0.45, 0.61, 0.67], [0, 1, 1, 0]);
+  const bgOpacity4 = useTransform(smoothProgress, [0.61, 0.67, 0.85, 0.91], [0, 1, 1, 0]);
+  const bgOpacity5 = useTransform(smoothProgress, [0.85, 0.91, 1.0], [0, 1, 1]);
+
+  // Stage content transitions (slide up + fade in/out)
+  const opacity1 = useTransform(smoothProgress, [0, 0.15, 0.2], [1, 1, 0]);
+  const y1 = useTransform(smoothProgress, [0, 0.15, 0.2], [0, 0, -35]);
+
+  const opacity2 = useTransform(smoothProgress, [0.15, 0.22, 0.38, 0.44], [0, 1, 1, 0]);
+  const y2 = useTransform(smoothProgress, [0.15, 0.22, 0.38, 0.44], [35, 0, 0, -35]);
+
+  const opacity3 = useTransform(smoothProgress, [0.38, 0.45, 0.61, 0.67], [0, 1, 1, 0]);
+  const y3 = useTransform(smoothProgress, [0.38, 0.45, 0.61, 0.67], [35, 0, 0, -35]);
+
+  const opacity4 = useTransform(smoothProgress, [0.61, 0.67, 0.85, 0.91], [0, 1, 1, 0]);
+  const y4 = useTransform(smoothProgress, [0.61, 0.67, 0.85, 0.91], [35, 0, 0, -35]);
+
+  const opacity5 = useTransform(smoothProgress, [0.85, 0.91, 1.0], [0, 1, 1]);
+  const y5 = useTransform(smoothProgress, [0.85, 0.91, 1.0], [35, 0, 0]);
+
+  // Status updates matching current progress
+  const stage1Status = useTransform(smoothProgress, [0, 0.08, 0.16], ['Analyzing your learning profile...', 'Analyzing your learning profile...', 'Learning profile created.']);
+  const stage2Status = useTransform(smoothProgress, [0.2, 0.28, 0.38], ['Scanning for weak areas...', 'Weak topic detected.', 'Dynamic Programming needs practice.']);
+  const stage3Status = useTransform(smoothProgress, [0.42, 0.52, 0.62], ['Generating your personalized plan...', 'Generating your plan...', 'Your plan is ready.']);
+  const stage4Status = useTransform(smoothProgress, [0.65, 0.74, 0.84], ['Detecting learning patterns...', 'Learning patterns detected.', 'Cadence adapted tomorrow\'s schedule.']);
+
   return (
-    <SectionReveal className="surface-premium py-20" stagger={0.08}>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionHeading
-          light
-          tag="The problem"
-          title="Traditional learning fails most students"
+    <div ref={containerRef} className="relative h-[500vh] w-full">
+      {/* Sticky Journey Frame */}
+      <div className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-center">
+        
+        {/* Dynamic Backgrounds */}
+        <motion.div
+          style={{ opacity: bgOpacity1, background: `radial-gradient(circle at 50% 50%, ${glowColor1} 0%, ${baseBg} 85%)` }}
+          className="absolute inset-0 -z-10"
         />
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {PROBLEM_CARDS.map((card) => (
-            <PremiumCard key={card.title} glow className="p-5">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-coral-500/15 text-coral-400">
-                <card.icon size={20} />
-              </div>
-              <h3 className="font-display text-base font-semibold text-white">{card.title}</h3>
-              <p className="mt-2 text-sm text-ink-400">{card.text}</p>
-            </PremiumCard>
-          ))}
-        </div>
-      </div>
-    </SectionReveal>
-  );
-}
+        <motion.div
+          style={{ opacity: bgOpacity2, background: `radial-gradient(circle at 50% 50%, ${glowColor2} 0%, ${baseBg} 85%)` }}
+          className="absolute inset-0 -z-10"
+        />
+        <motion.div
+          style={{ opacity: bgOpacity3, background: `radial-gradient(circle at 50% 50%, ${glowColor3} 0%, ${baseBg} 85%)` }}
+          className="absolute inset-0 -z-10"
+        />
+        <motion.div
+          style={{ opacity: bgOpacity4, background: `radial-gradient(circle at 50% 50%, ${glowColor4} 0%, ${baseBg} 85%)` }}
+          className="absolute inset-0 -z-10"
+        />
+        <motion.div
+          style={{ opacity: bgOpacity5, background: `radial-gradient(circle at 50% 50%, ${glowColor5} 0%, ${baseBg} 85%)` }}
+          className="absolute inset-0 -z-10"
+        />
 
-function HowItWorks() {
-  return (
-    <SectionReveal id="how-it-works" className="py-20" stagger={0.1}>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionHeading light tag="How it works" title="From goal to mastery in four steps" />
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((step, i) => (
-            <PremiumCard key={step.title} tilt={i === 1 || i === 3} gradientBorder className="p-5">
-              <span className="absolute right-5 top-5 font-display text-4xl font-bold text-white/5">{i + 1}</span>
-              <motion.div
-                className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 via-violet-500 to-accent-400 text-white shadow-glow"
-                animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 2.5 + i * 0.5, repeat: Infinity, delay: i * 0.3 }}
-              >
-                <step.icon size={22} />
-              </motion.div>
-              <h3 className="font-display text-base font-semibold text-white">{step.title}</h3>
-              <p className="mt-2 text-sm text-ink-400">{step.text}</p>
-            </PremiumCard>
-          ))}
-        </div>
-      </div>
-    </SectionReveal>
-  );
-}
+        {/* Fine grid */}
+        <div className="absolute inset-0 bg-grid-fine opacity-20 -z-10" />
 
-function Personalization() {
-  return (
-    <SectionReveal id="personalization" className="surface-premium py-20" stagger={0.1}>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          <div>
-            <RevealItem>
-              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-accent-400/30 bg-accent-500/10 px-3 py-1 text-xs font-semibold text-accent-300">
-                <Brain size={12} /> AI personalization
-              </span>
-            </RevealItem>
-            <RevealItem>
-              <h2 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                A plan that actually knows you
-              </h2>
-            </RevealItem>
-            <RevealItem>
-              <p className="mt-3 text-lg text-ink-400">
-                Nova considers everything that affects how you should study — not just what you need to cover.
+        {/* Side Timeline Tracker */}
+        <ScrollyTimeline scrollYProgress={smoothProgress} stages={STAGES} onStageClick={handleStageClick} />
+
+        {/* Main Grid Wrapper */}
+        <div className="mx-auto max-w-7xl px-6 lg:px-8 w-full flex flex-col-reverse lg:grid lg:grid-cols-12 gap-8 items-center justify-center h-full pt-16 pb-12">
+          
+          {/* Info cards (Left) */}
+          <div className="relative w-full lg:col-span-6 flex flex-col justify-center min-h-[180px] md:min-h-[220px] lg:min-h-[400px]">
+            
+            {/* Stage 1 */}
+            <motion.div
+              style={{ opacity: opacity1, y: y1 }}
+              className="absolute inset-0 flex flex-col justify-center"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-primary-400">01 — Understand You</span>
+              <h1 className="font-display text-2xl font-extrabold text-slate-900 dark:text-white mt-2 sm:text-4xl lg:text-5xl leading-tight">
+                Cadence learns how <br /> you learn.
+              </h1>
+              <p className="text-xs sm:text-base text-slate-600 dark:text-ink-300 mt-4 max-w-md">
+                We begin by assessing your current profile: strong topics, available study hours, specific exam deadlines, and personal style preferences.
               </p>
-            </RevealItem>
-            <div className="mt-8 space-y-3">
-              {PERSONALIZATION.map((item, i) => (
-                <RevealItem key={item.label}>
-                  <motion.div
-                    initial={{ opacity: 0, x: -16 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={viewportConfig}
-                    transition={{ delay: i * 0.08, duration: 0.5 }}
-                    className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm"
-                  >
-                    <span className="text-sm font-medium text-ink-200">{item.label}</span>
-                    <span className="text-sm text-ink-400">{item.value}</span>
-                  </motion.div>
-                </RevealItem>
-              ))}
-            </div>
-          </div>
-          <RevealItem className="flex flex-col items-center gap-8">
-            <motion.div variants={blurIn} className="relative">
-              <div className="absolute -inset-6 rounded-full bg-gradient-to-br from-primary-500/30 to-accent-400/20 blur-2xl" />
-              <ProgressRing value={78} size={220} stroke={16} label="78%" sublabel="quiz accuracy" />
+              
+              <div className="mt-5 flex flex-wrap gap-2 max-w-md">
+                <span className="rounded-full border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5 px-2.5 py-0.5 text-xs text-slate-700 dark:text-ink-200">Strong: Arrays</span>
+                <span className="rounded-full border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5 px-2.5 py-0.5 text-xs text-slate-700 dark:text-ink-200">Weak: DP</span>
+                <span className="rounded-full border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5 px-2.5 py-0.5 text-xs text-slate-700 dark:text-ink-200">Time: 2 hrs/day</span>
+                <span className="rounded-full border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5 px-2.5 py-0.5 text-xs text-slate-700 dark:text-ink-200">Deadline: Oct 15</span>
+              </div>
+
+              <div className="mt-6 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
+                </span>
+                <motion.span className="text-xs font-semibold text-blue-600 dark:text-primary-300">
+                  {stage1Status}
+                </motion.span>
+              </div>
             </motion.div>
-            <AIInsightPanel />
-          </RevealItem>
+
+            {/* Stage 2 */}
+            <motion.div
+              style={{ opacity: opacity2, y: y2 }}
+              className="absolute inset-0 flex flex-col justify-center pointer-events-none"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">02 — Find Your Weak Spots</span>
+              <h2 className="font-display text-2xl font-extrabold text-slate-900 dark:text-white mt-2 sm:text-4xl lg:text-5xl leading-tight">
+                Know what needs <br /> your attention.
+              </h2>
+              <p className="text-xs sm:text-base text-slate-600 dark:text-ink-300 mt-4 max-w-md">
+                No more guessing. Cadence conducts quick smart quizzes that pinpoint topic mastery level, helping you focus where it makes the biggest difference.
+              </p>
+
+              <div className="mt-6 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                </span>
+                <motion.span className="text-xs font-semibold text-violet-600 dark:text-violet-300">
+                  {stage2Status}
+                </motion.span>
+              </div>
+            </motion.div>
+
+            {/* Stage 3 */}
+            <motion.div
+              style={{ opacity: opacity3, y: y3 }}
+              className="absolute inset-0 flex flex-col justify-center pointer-events-none"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-sky-600 dark:text-accent-400">03 — Build Your Plan</span>
+              <h2 className="font-display text-2xl font-extrabold text-slate-900 dark:text-white mt-2 sm:text-4xl lg:text-5xl leading-tight">
+                Your plan changes <br /> with you.
+              </h2>
+              <p className="text-xs sm:text-base text-slate-600 dark:text-ink-300 mt-4 max-w-md">
+                Cadence designs a calendar mapped to your schedule. If you miss a session, the AI adapts and automatically reshuffles your topics so you stay on track.
+              </p>
+
+              <div className="mt-6 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-500"></span>
+                </span>
+                <motion.span className="text-xs font-semibold text-sky-600 dark:text-accent-300">
+                  {stage3Status}
+                </motion.span>
+              </div>
+            </motion.div>
+
+            {/* Stage 4 */}
+            <motion.div
+              style={{ opacity: opacity4, y: y4 }}
+              className="absolute inset-0 flex flex-col justify-center pointer-events-none"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-aurora-400">04 — Learn & Practice</span>
+              <h2 className="font-display text-2xl font-extrabold text-slate-900 dark:text-white mt-2 sm:text-4xl lg:text-5xl leading-tight">
+                Every session teaches <br /> Cadence something new.
+              </h2>
+              <p className="text-xs sm:text-base text-slate-600 dark:text-ink-300 mt-4 max-w-md">
+                As you practice, Cadence observes your retention curve and focus duration, adjusting the difficulty levels in real-time to match your growth.
+              </p>
+
+              <div className="mt-6 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-aurora-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-aurora-500"></span>
+                </span>
+                <motion.span className="text-xs font-semibold text-emerald-600 dark:text-aurora-300">
+                  {stage4Status}
+                </motion.span>
+              </div>
+            </motion.div>
+
+            {/* Stage 5 */}
+            <motion.div
+              style={{ opacity: opacity5, y: y5 }}
+              className="absolute inset-0 flex flex-col justify-center"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-primary-400">05 — Your Path</span>
+              <h2 className="font-display text-2xl font-extrabold text-slate-900 dark:text-white mt-2 sm:text-4xl lg:text-5xl leading-tight">
+                Your study plan <br /> is never finished.
+              </h2>
+              <p className="text-xs sm:text-base text-slate-600 dark:text-ink-300 mt-4 max-w-md">
+                A living study ecosystem that learns from your daily performance and evolves to ensure perfect retention.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link to="/signup">
+                  <Button size="lg" variant="gradient" className="shadow-glow" magnetic>
+                    Build My Study Plan <ArrowRight size={18} />
+                  </Button>
+                </Link>
+                <Link to="/app">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-slate-200/80 bg-slate-100/50 text-slate-700 hover:bg-slate-200/50 dark:border-white/20 dark:bg-white/5 dark:text-white dark:hover:border-white/30 dark:hover:bg-white/10"
+                  >
+                    Explore Demo
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* AI Core Protagonist (Right) */}
+          <div className="w-full lg:col-span-6 flex items-center justify-center relative mt-4 lg:mt-0">
+            <AICore scrollYProgress={smoothProgress} />
+          </div>
+
         </div>
+
       </div>
-    </SectionReveal>
+    </div>
   );
 }
 
@@ -264,12 +359,12 @@ function Features() {
               <motion.div
                 whileHover={{ rotate: [0, -8, 8, 0], scale: 1.08 }}
                 transition={{ duration: 0.4 }}
-                className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500/20 to-violet-500/20 text-primary-300"
+                className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500/10 to-violet-500/10 text-blue-600 dark:from-primary-500/20 dark:to-violet-500/20 dark:text-primary-300"
               >
                 <f.icon size={20} />
               </motion.div>
-              <h3 className="font-display text-base font-semibold text-white">{f.title}</h3>
-              <p className="mt-2 text-sm text-ink-400">{f.text}</p>
+              <h3 className="font-display text-base font-semibold text-slate-900 dark:text-white">{f.title}</h3>
+              <p className="mt-2 text-sm text-slate-500 dark:text-ink-400">{f.text}</p>
             </PremiumCard>
           ))}
         </div>
@@ -305,7 +400,7 @@ function ProgressPreview() {
           <PremiumCard glow className="p-6">
             <div className="flex flex-col items-center">
               <ProgressRing value={34} size={140} label="34%" sublabel="overall" />
-              <p className="mt-4 text-sm text-ink-400">Overall completion</p>
+              <p className="mt-4 text-sm text-slate-500 dark:text-ink-400">Overall completion</p>
               <div className="mt-3 flex items-center gap-2 text-xs text-accent-300">
                 <TrendingUp size={12} />
                 <AnimatedNumber value={12} prefix="+" suffix="% this week" />
@@ -313,7 +408,7 @@ function ProgressPreview() {
             </div>
           </PremiumCard>
           <PremiumCard glow className="p-6 lg:col-span-2">
-            <h3 className="font-display text-base font-semibold text-white">Weekly study hours</h3>
+            <h3 className="font-display text-base font-semibold text-slate-900 dark:text-white">Weekly study hours</h3>
             <div className="mt-6 flex items-end justify-between gap-2">
               {weekData.map((bar, i) => (
                 <div key={bar.d} className="flex flex-1 flex-col items-center gap-2">
@@ -324,7 +419,7 @@ function ProgressPreview() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.8, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
                   />
-                  <span className="text-xs text-ink-500">{bar.d}</span>
+                  <span className="text-xs text-slate-400 dark:text-ink-500">{bar.d}</span>
                 </div>
               ))}
             </div>
@@ -332,17 +427,17 @@ function ProgressPreview() {
         </div>
         <div className="mt-5 grid gap-5 md:grid-cols-2">
           <PremiumCard className="p-6">
-            <h3 className="font-display text-base font-semibold text-white">Topic strength</h3>
+            <h3 className="font-display text-base font-semibold text-slate-900 dark:text-white">Topic strength</h3>
             <div className="mt-4 space-y-3">
               {topics.map((row, i) => (
                 <div key={row.t}>
                   <div className="mb-1 flex justify-between text-sm">
-                    <span className="text-ink-300">{row.t}</span>
-                    <span className="font-semibold text-white">
+                    <span className="text-slate-600 dark:text-ink-300">{row.t}</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
                       <AnimatedNumber value={row.v} suffix="%" duration={1000 + i * 200} />
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
                     <motion.div
                       className={`h-full rounded-full bg-gradient-to-r ${row.color}`}
                       initial={{ width: 0 }}
@@ -356,7 +451,7 @@ function ProgressPreview() {
             </div>
           </PremiumCard>
           <PremiumCard className="p-6">
-            <h3 className="font-display text-base font-semibold text-white">Upcoming sessions</h3>
+            <h3 className="font-display text-base font-semibold text-slate-900 dark:text-white">Upcoming sessions</h3>
             <div className="mt-4 space-y-3">
               {[
                 { day: 'Today', topic: 'Dynamic Programming', tone: 'primary' as const },
@@ -370,11 +465,11 @@ function ProgressPreview() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5 px-4 py-3"
                 >
                   <div>
-                    <p className="text-xs text-ink-500">{s.day}</p>
-                    <p className="text-sm font-semibold text-white">{s.topic}</p>
+                    <p className="text-xs text-slate-400 dark:text-ink-500">{s.day}</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{s.topic}</p>
                   </div>
                   <Badge tone={s.tone}>Scheduled</Badge>
                 </motion.div>
@@ -388,14 +483,17 @@ function ProgressPreview() {
 }
 
 function AIPreview() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
     <SectionReveal id="ai-preview" className="py-20" stagger={0.1}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading light tag="AI tutor" title="Ask anything. Get a real answer." />
         <RevealItem>
           <div className="relative mx-auto max-w-2xl">
-            <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-primary-500/20 via-violet-500/15 to-accent-400/20 blur-2xl" />
-            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-ink-900/75 p-6 backdrop-blur-2xl sm:p-8">
+            <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-primary-500/10 via-violet-500/10 to-accent-400/10 dark:from-primary-500/20 dark:to-accent-400/20 blur-2xl" />
+            <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/90 dark:border-white/10 dark:bg-[#111827]/90 p-6 backdrop-blur-2xl sm:p-8 shadow-sm">
               <div className="space-y-4">
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
@@ -417,7 +515,7 @@ function AIPreview() {
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 via-violet-500 to-accent-400 text-white">
                     <Sparkles size={14} />
                   </div>
-                  <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-ink-200">
+                  <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-slate-200/60 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-ink-200">
                     Think of dynamic programming as solving a big problem by remembering solutions to smaller problems
                     you've already solved, instead of recomputing them.
                     <span className="ml-1 inline-flex gap-0.5">
@@ -438,7 +536,7 @@ function AIPreview() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.3 + i * 0.08 }}
-                    className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-ink-300 transition hover:border-primary-400/40 hover:bg-primary-500/10 hover:text-primary-200"
+                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-primary-500/40 hover:bg-primary-50 dark:border-white/15 dark:bg-white/5 dark:text-ink-300 dark:hover:border-primary-400/40 dark:hover:bg-primary-500/10 dark:hover:text-primary-200"
                   >
                     {p}
                   </motion.button>
@@ -453,13 +551,16 @@ function AIPreview() {
 }
 
 function Gamification() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   const badges = [
-    { icon: Flame, title: '7 Day Streak', color: 'text-coral-400 bg-coral-500/15' },
-    { icon: Target, title: 'First Goal', color: 'text-primary-300 bg-primary-500/15' },
-    { icon: Brain, title: 'Quiz Master', color: 'text-accent-300 bg-accent-500/15' },
-    { icon: BookOpen, title: '10 Topics', color: 'text-aurora-400 bg-aurora-500/15' },
-    { icon: Zap, title: 'Consistency', color: 'text-violet-300 bg-violet-500/15' },
-    { icon: Trophy, title: 'Comeback Kid', color: 'text-coral-400 bg-coral-500/15' },
+    { icon: Flame, title: '7 Day Streak', color: isDark ? 'text-coral-400 bg-coral-500/15' : 'text-[#C05800] bg-[#C05800]/10' },
+    { icon: Target, title: 'First Goal', color: isDark ? 'text-primary-300 bg-primary-500/15' : 'text-[var(--nova-primary)] bg-[var(--nova-primary-soft)]' },
+    { icon: Brain, title: 'Quiz Master', color: isDark ? 'text-accent-300 bg-accent-500/15' : 'text-sky-600 bg-sky-50' },
+    { icon: BookOpen, title: '10 Topics', color: isDark ? 'text-aurora-400 bg-aurora-500/15' : 'text-emerald-600 bg-emerald-50' },
+    { icon: Zap, title: 'Consistency', color: isDark ? 'text-violet-300 bg-violet-500/15' : 'text-violet-600 bg-violet-50' },
+    { icon: Trophy, title: 'Comeback Kid', color: isDark ? 'text-coral-400 bg-coral-500/15' : 'text-[#C05800] bg-[#C05800]/10' },
   ];
 
   return (
@@ -468,16 +569,16 @@ function Gamification() {
         <SectionHeading light tag="Gamification" title="Stay motivated, build consistency" />
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { icon: Flame, value: 7, suffix: ' days', label: 'Current streak — keep it alive!', color: 'text-coral-400 bg-coral-500/15' },
-            { icon: Zap, value: 2450, suffix: ' XP', label: 'Level 6 · 550 XP to level 7', color: 'text-primary-300 bg-primary-500/15' },
-            { icon: Trophy, value: 2, suffix: '/6 unlocked', label: 'Achievements earned', color: 'text-accent-300 bg-accent-500/15', extra: true },
+            { icon: Flame, value: 7, suffix: ' days', label: 'Current streak — keep it alive!', color: isDark ? 'text-coral-400 bg-coral-500/15' : 'text-[#C05800] bg-[#C05800]/10' },
+            { icon: Zap, value: 2450, suffix: ' XP', label: 'Level 6 · 550 XP to level 7', color: isDark ? 'text-primary-300 bg-primary-500/15' : 'text-[var(--nova-primary)] bg-[var(--nova-primary-soft)]' },
+            { icon: Trophy, value: 2, suffix: '/6 unlocked', label: 'Achievements earned', color: isDark ? 'text-accent-300 bg-accent-500/15' : 'text-sky-600 bg-sky-50', extra: true },
           ].map((stat) => (
             <PremiumCard key={stat.label} glow className="flex items-center gap-4 p-5">
               <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${stat.color}`}>
                 <stat.icon size={26} />
               </div>
               <div>
-                <p className="font-display text-2xl font-bold text-white">
+                <p className="font-display text-2xl font-bold text-slate-900 dark:text-white">
                   {stat.extra ? (
                     <>
                       <AnimatedNumber value={2} />/<AnimatedNumber value={6} /> unlocked
@@ -486,7 +587,7 @@ function Gamification() {
                     <AnimatedNumber value={stat.value} suffix={stat.suffix} />
                   )}
                 </p>
-                <p className="text-sm text-ink-400">{stat.label}</p>
+                <p className="text-sm text-slate-500 dark:text-ink-400">{stat.label}</p>
               </div>
             </PremiumCard>
           ))}
@@ -497,7 +598,7 @@ function Gamification() {
               <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${b.color}`}>
                 <b.icon size={22} />
               </div>
-              <p className="text-xs font-semibold text-ink-200">{b.title}</p>
+              <p className="text-xs font-semibold text-slate-600 dark:text-ink-200">{b.title}</p>
             </PremiumCard>
           ))}
         </div>
@@ -516,7 +617,7 @@ function FinalCTA() {
           viewport={viewportConfig}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 p-8 sm:p-12">
+          <div className="relative overflow-hidden rounded-3xl border border-slate-200 dark:border-white/10 p-8 sm:p-12">
             <div className="absolute inset-0 aurora opacity-90" />
             <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
             <div className="absolute -bottom-24 -left-10 h-64 w-64 rounded-full bg-accent-400/20 blur-2xl" />
@@ -528,7 +629,7 @@ function FinalCTA() {
                 Build your personalized plan in under two minutes and see the difference adaptive learning makes.
               </p>
               <Link to="/signup" className="mt-8 inline-block">
-                <Button size="lg" variant="secondary" magnetic className="bg-white text-primary-700 hover:bg-primary-50">
+                <Button size="lg" variant="secondary" magnetic className="bg-white text-primary-700 hover:bg-primary-50 shadow-md">
                   Create My Personalized Plan <ArrowRight size={18} />
                 </Button>
               </Link>

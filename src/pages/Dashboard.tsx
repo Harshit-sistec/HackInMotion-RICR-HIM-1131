@@ -12,24 +12,25 @@ import {
   Calendar,
   TrendingUp,
   RefreshCw,
+  Brain,
+  MessageSquare,
+  ClipboardList,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuth } from '@/store/AuthContext';
 import { useAppData } from '@/store/AppDataContext';
 
 const STRENGTH_BARS = [
-  { topic: 'Dynamic Programming', value: 42, tone: 'error' },
-  { topic: 'Graph Algorithms', value: 58, tone: 'warning' },
-  { topic: 'DBMS', value: 81, tone: 'success' },
-  { topic: 'Operating Systems', value: 73, tone: 'success' },
-  { topic: 'Computer Networks', value: 67, tone: 'accent' },
+  { topic: 'Dynamic Programming', value: 42 },
+  { topic: 'Graph Algorithms', value: 58 },
+  { topic: 'DBMS', value: 81 },
+  { topic: 'Operating Systems', value: 73 },
+  { topic: 'Computer Networks', value: 67 },
 ];
 
 export function Dashboard() {
@@ -52,21 +53,80 @@ export function Dashboard() {
 
   const hasMissed = plan?.sessions.some((s) => s.status === 'missed') ?? false;
 
+  // Stagger animation parent variants
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
+  const itemFadeUp = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+  };
+
+  // If user has not completed onboarding
   if (!plan) {
     return (
       <AppLayout>
-        <div className="p-4 sm:p-6 lg:p-8">
-          <PageHeader title={`Welcome, ${firstName}!`} subtitle="Let's get your study journey started." />
-          <EmptyState
-            icon={Target}
-            title="Create your first learning goal"
-            description="Set a goal, take the diagnostic, and Nova will generate your personalized plan."
-            action={
-              <Link to="/onboarding">
-                <Button>Start onboarding <ArrowRight size={16} /></Button>
-              </Link>
-            }
+        <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
+          <PageHeader
+            title={`Welcome back, ${firstName} 👋`}
+            subtitle="Let's turn today's study time into real progress."
           />
+
+          {/* Learning Command Center Card (White + Blue borders) */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="relative overflow-hidden rounded-3xl border border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-[#1E293B] dark:bg-[#111827] p-6 sm:p-8 shadow-sm"
+          >
+            {/* Subtle blue atmosphere glow inside the white card */}
+            <div className="absolute right-[-10%] top-[-10%] h-64 w-64 bg-[var(--nova-primary)]/5 rounded-full blur-[90px] -z-10" />
+
+            <div className="grid gap-8 items-center md:grid-cols-12">
+              <div className="md:col-span-7 space-y-5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--nova-primary-soft)] px-3.5 py-1 text-[10px] font-bold tracking-wider text-[var(--nova-primary)] uppercase border border-[var(--nova-primary)]/10">
+                  <Sparkles size={11} /> AI Personalized Learning
+                </span>
+                <h2 className="font-display text-2xl font-extrabold text-[var(--nova-text)] dark:text-[#F8FAFC] sm:text-3xl leading-tight">
+                  Build your learning path.
+                </h2>
+                <p className="text-sm text-[var(--nova-text-secondary)] dark:text-[#CBD5E1] leading-relaxed max-w-lg">
+                  Set your goal, complete a quick diagnostic assessment, and Cadence will create a study plan tailored to your pace. Complete your diagnostic to unlock your AI-generated study plan.
+                </p>
+                <div className="flex flex-wrap gap-4 pt-2">
+                  <Link to="/onboarding">
+                    <motion.button
+                      whileHover={{ scale: 1.02, backgroundColor: 'var(--nova-primary-hover)' }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--nova-primary)] px-6 text-sm font-bold text-white transition-all duration-300 shadow-sm"
+                    >
+                      Start onboarding <ArrowRight size={16} />
+                    </motion.button>
+                  </Link>
+                  <motion.button
+                    whileHover={{ scale: 1.02, backgroundColor: 'var(--nova-bg)' }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={loadDemoData}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[var(--nova-border)] bg-[var(--nova-surface)] px-6 text-sm font-bold text-[var(--nova-text-secondary)] transition-all duration-300"
+                  >
+                    <Sparkles size={14} /> Explore how it works
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Right Side visual protagonist */}
+              <div className="md:col-span-5 flex justify-center">
+                <OnboardingVisual />
+              </div>
+            </div>
+          </motion.div>
         </div>
       </AppLayout>
     );
@@ -74,13 +134,18 @@ export function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
         <PageHeader
           title={`${greeting}, ${firstName} 👋`}
           subtitle="Let's make today's study session count."
           action={
-            <Button variant="outline" size="sm" onClick={loadDemoData}>
-              <Sparkles size={14} /> Load demo data
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadDemoData}
+              className="border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-[#1E293B] dark:bg-[#111827] text-xs text-[var(--nova-text-secondary)] dark:text-[#CBD5E1] hover:bg-slate-50"
+            >
+              <Sparkles size={13} /> Load demo data
             </Button>
           }
         />
@@ -90,102 +155,157 @@ export function Dashboard() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
+            className="mb-4"
           >
             <AdaptiveBanner onAdjust={autoAdjustPlan} />
           </motion.div>
         )}
 
         {/* Today's focus + stats */}
-        <div className="grid gap-5 lg:grid-cols-3">
-          <Card padding="lg" className="lg:col-span-2" hover>
-            <div className="flex items-center justify-between">
-              <Badge tone="primary">
-                <Target size={12} /> Today's focus
-              </Badge>
-              <span className="text-xs text-ink-400 dark:text-ink-500">
-                {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
-              </span>
+        <div className="grid gap-6 lg:grid-cols-3">
+          
+          {/* Today's Focus Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="lg:col-span-2 rounded-3xl border border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-white/5 dark:bg-[#111827] p-6 shadow-soft flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between border-b border-[var(--nova-border)] dark:border-white/5 pb-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--nova-primary-soft)] px-3.5 py-1 text-[10px] font-bold tracking-wider text-[var(--nova-primary)] uppercase">
+                  <Target size={11} /> TODAY'S FOCUS
+                </span>
+                <span className="text-xs font-semibold text-[var(--nova-primary)] dark:text-[#CBD5E1]">
+                  {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                </span>
+              </div>
+              
+              {todaySession ? (
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <h3 className="font-display text-xl font-extrabold text-[var(--nova-text)] dark:text-white">{todaySession.topic}</h3>
+                    <p className="mt-1 text-xs sm:text-sm text-[var(--nova-text-secondary)] dark:text-[#CBD5E1] leading-relaxed">{todaySession.objective}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-white/5 px-2.5 py-1 text-[10px] font-bold text-[var(--nova-text-secondary)] dark:text-slate-300">
+                      <Clock size={11} /> {todaySession.estimatedMinutes} min
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-xl bg-[var(--nova-primary-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--nova-primary)]">
+                      {todaySession.difficulty}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-xl bg-[var(--nova-primary-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--nova-primary)]">
+                      {todaySession.conceptsDone}/{todaySession.conceptsTotal} concepts
+                    </span>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <div className="h-2 overflow-hidden rounded-full bg-[var(--nova-border)] dark:bg-white/10">
+                      <motion.div
+                        className="h-full rounded-full bg-[var(--nova-primary)]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(todaySession.conceptsDone / todaySession.conceptsTotal) * 100}%` }}
+                        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-[var(--nova-text-secondary)] dark:text-slate-500">
+                      <span>{Math.round((todaySession.conceptsDone / todaySession.conceptsTotal) * 100)}% complete</span>
+                      <span>{todaySession.conceptsTotal - todaySession.conceptsDone} concepts left</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-5 text-sm text-[var(--nova-text-secondary)]">No session scheduled for today. Enjoy your break!</p>
+              )}
             </div>
-            {todaySession ? (
-              <div className="mt-5">
-                <h3 className="font-display text-2xl font-bold text-ink-900 dark:text-ink-50">{todaySession.topic}</h3>
-                <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">{todaySession.objective}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Badge tone="neutral">
-                    <Clock size={12} /> {todaySession.estimatedMinutes} min
-                  </Badge>
-                  <Badge tone="accent">{todaySession.difficulty}</Badge>
-                  <Badge tone="primary">
-                    {todaySession.conceptsDone}/{todaySession.conceptsTotal} concepts
-                  </Badge>
-                </div>
-                <div className="mt-5 h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
-                  <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-primary-600 to-accent-500"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(todaySession.conceptsDone / todaySession.conceptsTotal) * 100}%` }}
-                    transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                </div>
-                <Link to="/app/session" className="mt-5 inline-block">
-                  <Button size="lg">
-                    <Play size={16} /> Start Session
-                  </Button>
+
+            {todaySession && (
+              <div className="mt-6">
+                <Link to="/app/session">
+                  <motion.button
+                    whileHover={{ scale: 1.02, backgroundColor: 'var(--nova-primary-hover)' }}
+                    whileTap={{ scale: 0.98 }}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--nova-primary)] px-6 text-sm font-bold text-white transition-all duration-300 shadow-sm"
+                  >
+                    <Play size={15} /> Start Study Session
+                  </motion.button>
                 </Link>
               </div>
-            ) : (
-              <p className="mt-5 text-sm text-ink-500">No session scheduled for today. Enjoy your break!</p>
             )}
-          </Card>
+          </motion.div>
 
-          <Card padding="lg" className="flex flex-col items-center justify-center" hover>
+          {/* Progress Ring Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="rounded-3xl border border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-white/5 dark:bg-[#111827] p-6 shadow-soft flex flex-col items-center justify-center text-center"
+          >
             <ProgressRing
               value={progress?.overallCompletion ?? 0}
-              size={140}
+              size={130}
+              stroke={12}
               label={`${progress?.overallCompletion ?? 0}%`}
               sublabel="overall"
             />
-            <p className="mt-4 text-center text-sm text-ink-500 dark:text-ink-400">
-              {plan.goalTitle} · {Math.ceil((new Date(plan.examDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days left
+            <p className="mt-4 text-xs font-bold text-[var(--nova-text)] dark:text-[#F8FAFC]">
+              {plan.goalTitle}
             </p>
-          </Card>
+            <p className="text-[9px] text-[var(--nova-primary)] uppercase tracking-widest mt-1.5 font-bold">
+              {Math.ceil((new Date(plan.examDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days until exam
+            </p>
+          </motion.div>
         </div>
 
-        {/* Stats */}
-        <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={TrendingUp} label="Overall Progress" value={progress?.overallCompletion ?? 0} suffix="%" color="primary" />
-          <StatCard icon={Flame} label="Study Streak" value={progress?.streakDays ?? 0} suffix=" days" color="warning" />
-          <StatCard icon={Clock} label="Hours Studied" value={progress?.hoursStudied ?? 0} suffix="h" decimals={1} color="accent" />
-          <StatCard icon={BookOpen} label="Topics Mastered" value={progress?.topicsMastered ?? 0} color="success" />
-        </div>
+        {/* Stats Grid Staggered */}
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <StatCard variant={itemFadeUp} icon={Target} label="Overall Progress" value={progress?.overallCompletion ?? 0} suffix="%" color="primary" />
+          <StatCard variant={itemFadeUp} icon={Flame} label="Study Streak" value={progress?.streakDays ?? 0} suffix=" days" color="warning" />
+          <StatCard variant={itemFadeUp} icon={Clock} label="Hours Studied" value={progress?.hoursStudied ?? 0} suffix="h" decimals={1} color="accent" />
+          <StatCard variant={itemFadeUp} icon={BookOpen} label="Topics Mastered" value={progress?.topicsMastered ?? 0} color="success" />
+        </motion.div>
 
-        {/* Chart + knowledge strength */}
-        <div className="mt-5 grid gap-5 lg:grid-cols-2">
-          <Card hover>
-            <CardHeader title="Study Progress" subtitle="Weekly study activity" />
+        {/* Chart + Knowledge Strength */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Weekly Chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="rounded-3xl border border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-white/5 dark:bg-[#111827] p-5 shadow-soft"
+          >
+            <div className="border-b border-[var(--nova-border)] dark:border-white/5 pb-3 mb-5">
+              <h3 className="font-display text-xs font-bold text-[var(--nova-text)] dark:text-white uppercase tracking-wider">Weekly Activity</h3>
+              <p className="text-[11px] text-[var(--nova-text-secondary)] dark:text-slate-500">Hours spent studying this week</p>
+            </div>
             <WeeklyChart data={progress?.weeklyActivity ?? []} />
-          </Card>
-          <Card hover>
-            <CardHeader title="Knowledge Strength" subtitle="Topic-by-topic mastery" />
-            <div className="space-y-3">
+          </motion.div>
+
+          {/* Knowledge Strength */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+            className="rounded-3xl border border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-white/5 dark:bg-[#111827] p-5 shadow-soft"
+          >
+            <div className="border-b border-[var(--nova-border)] dark:border-white/5 pb-3 mb-5">
+              <h3 className="font-display text-xs font-bold text-[var(--nova-text)] dark:text-white uppercase tracking-wider">Knowledge Strength</h3>
+              <p className="text-[11px] text-[var(--nova-text-secondary)] dark:text-slate-500">Topic-by-topic mastery levels</p>
+            </div>
+            <div className="space-y-4">
               {STRENGTH_BARS.map((row) => (
-                <div key={row.topic}>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span className="text-ink-700 dark:text-ink-200">{row.topic}</span>
-                    <span className="font-semibold text-ink-900 dark:text-ink-50">{row.value}%</span>
+                <div key={row.topic} className="space-y-1">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-[var(--nova-text-secondary)] dark:text-slate-300">{row.topic}</span>
+                    <span className="text-[var(--nova-text)] dark:text-white">{row.value}%</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
+                  <div className="h-2 overflow-hidden rounded-full bg-[var(--nova-border)] dark:bg-white/10">
                     <motion.div
-                      className={`h-full rounded-full ${
-                        row.tone === 'error'
-                          ? 'bg-error-500'
-                          : row.tone === 'warning'
-                            ? 'bg-warning-500'
-                            : row.tone === 'accent'
-                              ? 'bg-accent-500'
-                              : 'bg-success-500'
-                      }`}
+                      className={`h-full rounded-full bg-[var(--nova-primary)]`}
                       initial={{ width: 0 }}
                       animate={{ width: `${row.value}%` }}
                       transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
@@ -194,83 +314,170 @@ export function Dashboard() {
                 </div>
               ))}
             </div>
-          </Card>
+          </motion.div>
         </div>
 
-        {/* Upcoming + AI recommendation */}
-        <div className="mt-5 grid gap-5 lg:grid-cols-2">
-          <Card hover>
-            <CardHeader title="Upcoming Sessions" subtitle="Your next few study blocks" />
+        {/* Quick Actions / Navigation shortcuts */}
+        <div className="space-y-3">
+          <span className="block text-[10px] font-bold tracking-widest text-[var(--nova-text-secondary)] dark:text-[#CBD5E1] uppercase">Quick Actions</span>
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            <QuickActionCard to="/app/tutor" label="AI Tutor" desc="Ask Cadence anything" icon={MessageSquare} index={1} />
+            <QuickActionCard to="/app/plan" label="Study Plan" desc="Continue your schedule" icon={Calendar} index={2} />
+            <QuickActionCard to="/app/assessments" label="Assessments" desc="Test your knowledge" icon={ClipboardList} index={3} />
+            <QuickActionCard to="/app/progress" label="Progress Hub" desc="Analyze stats & trends" icon={TrendingUp} index={4} />
+          </div>
+        </div>
+
+        {/* Upcoming + AI Recommendation */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Upcoming Sessions */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            whileHover={{
+              y: -2,
+              borderColor: 'rgba(37, 99, 235, 0.20)',
+              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)'
+            }}
+            className="rounded-3xl border border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-white/5 dark:bg-[#111827] p-5 shadow-soft overflow-hidden"
+          >
+            <div className="border-b border-[var(--nova-border)] dark:border-white/5 pb-3 mb-5">
+              <h3 className="font-display text-xs font-bold text-[var(--nova-text)] dark:text-white uppercase tracking-wider">Upcoming Sessions</h3>
+              <p className="text-[11px] text-[var(--nova-text-secondary)] dark:text-[#94A3B8]">Your next few scheduled learning blocks</p>
+            </div>
+            
             <div className="space-y-3">
               {upcoming.length > 0 ? (
                 upcoming.map((s) => (
                   <div
                     key={s.id}
-                    className="flex items-center justify-between rounded-xl border border-ink-200 px-4 py-3 dark:border-ink-800"
+                    className="flex items-center justify-between rounded-2xl border border-[var(--nova-border)] bg-[var(--nova-surface)] px-4 py-3 dark:border-white/5 dark:bg-[#172033] shadow-sm"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-900/40 dark:text-primary-300">
-                        <Calendar size={18} />
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--nova-primary-soft)] text-[var(--nova-primary)] border border-[var(--nova-primary)]/10">
+                        <Calendar size={16} />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-ink-900 dark:text-ink-50">{s.topic}</p>
-                        <p className="text-xs text-ink-400 dark:text-ink-500">
+                        <p className="text-xs sm:text-sm font-semibold text-[var(--nova-text)] dark:text-[#F8FAFC]">{s.topic}</p>
+                        <p className="text-[10px] text-[var(--nova-text-secondary)] dark:text-[#94A3B8] mt-0.5">
                           {relativeDate(s.date)} · {s.estimatedMinutes} min
                         </p>
                       </div>
                     </div>
-                    <Badge tone={s.status === 'in-progress' ? 'accent' : 'neutral'}>
+                    <Badge tone="neutral" className="text-[9px] font-bold px-2 py-0.5 uppercase tracking-wide bg-[var(--nova-primary-soft)] text-[var(--nova-primary)] border-none">
                       {s.status === 'in-progress' ? 'In progress' : 'Upcoming'}
                     </Badge>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-ink-400">No upcoming sessions. You're all caught up!</p>
+                <p className="text-xs text-[var(--nova-text-secondary)]">No upcoming sessions. You're all caught up!</p>
               )}
             </div>
-          </Card>
+          </motion.div>
 
-          <Card padding="lg" className="bg-gradient-to-br from-primary-50 to-accent-50 dark:from-primary-900/30 dark:to-accent-900/30" hover>
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-accent-500 text-white">
-                <Sparkles size={18} />
-              </div>
-              <Badge tone="primary">AI Recommendation</Badge>
-            </div>
-            <p className="text-sm text-ink-700 dark:text-ink-200">
-              Based on your recent quiz performance, I recommend spending <span className="font-bold">30 extra minutes</span> on{' '}
-              <span className="font-bold">{weakTopics[0] ?? 'Dynamic Programming'}</span> today. Your accuracy there dropped 12% this week.
-            </p>
-            <Button className="mt-5" size="sm" onClick={autoAdjustPlan}>
-              <RefreshCw size={14} /> Update My Plan
-            </Button>
-          </Card>
-        </div>
-
-        {/* Streak / motivation */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mt-5"
-        >
-          <Card padding="lg" className="flex items-center gap-4" hover>
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-warning-50 text-warning-600 dark:bg-warning-700/20">
-              <Flame size={28} />
-            </div>
+          {/* AI Recommendation Panel */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.35 }}
+            whileHover={{
+              y: -2,
+              borderColor: 'rgba(37, 99, 235, 0.20)',
+              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)'
+            }}
+            className="rounded-3xl border border-[var(--nova-border)] bg-[var(--nova-surface)] p-6 shadow-sm flex flex-col justify-between dark:border-[#1E293B] dark:bg-[#111827] overflow-hidden"
+          >
             <div>
-              <p className="font-display text-xl font-bold text-ink-900 dark:text-ink-50">
-                {progress?.streakDays ?? 0} Day Streak
+              <div className="mb-4 flex items-center justify-between border-b border-[var(--nova-border)] dark:border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--nova-primary-soft)] text-[var(--nova-primary)]">
+                    <Sparkles size={14} className="animate-pulse" />
+                  </div>
+                  <Badge tone="primary" className="text-[9px] font-bold py-0.5 tracking-wider uppercase bg-[var(--nova-primary-soft)] text-[var(--nova-primary)] border-none">AI Recommendation</Badge>
+                </div>
+              </div>
+              <p className="text-xs sm:text-sm text-[var(--nova-text-secondary)] dark:text-[#CBD5E1] leading-relaxed">
+                Based on your recent quiz performance, I recommend spending <span className="font-extrabold text-[var(--nova-primary)]">30 extra minutes</span> on{' '}
+                <span className="font-extrabold text-[var(--nova-text)] dark:text-[#F8FAFC]">{weakTopics[0] ?? 'Dynamic Programming'}</span> today. Your retention retention accuracy there dropped 12% this week.
               </p>
-              <p className="text-sm text-ink-500 dark:text-ink-400">You're building consistency. Keep going!</p>
             </div>
-          </Card>
-        </motion.div>
+            
+            <div className="mt-6">
+              <motion.button
+                whileHover={{ scale: 1.02, backgroundColor: 'var(--nova-primary-hover)' }}
+                whileTap={{ scale: 0.98 }}
+                onClick={autoAdjustPlan}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[var(--nova-primary)] px-4 text-xs font-bold text-white transition-all duration-200 shadow-sm"
+              >
+                <RefreshCw size={12} /> Sync & Update My Plan
+              </motion.button>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </AppLayout>
   );
 }
 
+/* ============================================================================
+   SUB-COMPONENT: Onboarding Core Visual
+   ============================================================================ */
+function OnboardingVisual() {
+  return (
+    <div className="relative h-[220px] w-full flex items-center justify-center select-none pointer-events-none sm:h-[260px]">
+      {/* Background radial glow */}
+      <div className="absolute h-36 w-36 rounded-full bg-[var(--nova-primary)]/5 blur-3xl animate-pulse" />
+      
+      {/* Outer spinning SVG orbit ring */}
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
+        className="absolute h-[160px] w-[160px] opacity-25"
+      >
+        <svg className="h-full w-full" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="46" fill="none" stroke="var(--nova-primary)" strokeWidth="1" strokeDasharray="5 10" />
+        </svg>
+      </motion.div>
+
+      {/* Central Glowing AI Core Orb */}
+      <motion.div
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--nova-primary)] text-white shadow-glow shadow-[var(--nova-primary)]/15"
+      >
+        <Brain size={22} className="drop-shadow-[0_0_4px_rgba(255,255,255,0.7)]" />
+      </motion.div>
+
+      {/* Floating educational nodes */}
+      <motion.div
+        animate={{ y: [0, -6, 0] }}
+        transition={{ duration: 4.2, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute left-[15%] top-[20%] rounded-xl border border-[var(--nova-border)] bg-[var(--nova-surface)] px-2.5 py-1 text-[9px] font-bold text-[var(--nova-text-secondary)] shadow-sm"
+      >
+        DP 42%
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, 6, 0] }}
+        transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+        className="absolute right-[12%] top-[30%] rounded-xl border border-[var(--nova-border)] bg-[var(--nova-surface)] px-2.5 py-1 text-[9px] font-bold text-[var(--nova-text-secondary)] shadow-sm"
+      >
+        Arrays 92% ✓
+      </motion.div>
+      <motion.div
+        animate={{ y: [0, -4, 0] }}
+        transition={{ duration: 4.6, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+        className="absolute left-[20%] bottom-[20%] rounded-xl border border-[var(--nova-warning)]/20 bg-[var(--nova-surface)] px-2.5 py-1 text-[9px] font-bold text-[var(--nova-warning)] shadow-sm"
+      >
+        7 day streak 🔥
+      </motion.div>
+    </div>
+  );
+}
+
+/* ============================================================================
+   SUB-COMPONENT: Stats Metrics Card
+   ============================================================================ */
 function StatCard({
   icon: Icon,
   label,
@@ -278,6 +485,7 @@ function StatCard({
   suffix = '',
   decimals = 0,
   color,
+  variant,
 }: {
   icon: typeof Flame;
   label: string;
@@ -285,70 +493,138 @@ function StatCard({
   suffix?: string;
   decimals?: number;
   color: 'primary' | 'warning' | 'accent' | 'success';
+  variant: any;
 }) {
   const colors = {
-    primary: 'bg-primary-50 text-primary-600 dark:bg-primary-900/40 dark:text-primary-300',
-    warning: 'bg-warning-50 text-warning-600 dark:bg-warning-700/20 dark:text-warning-400',
-    accent: 'bg-accent-50 text-accent-600 dark:bg-accent-900/40 dark:text-accent-300',
-    success: 'bg-success-50 text-success-600 dark:bg-success-700/20 dark:text-success-400',
+    primary: 'bg-[var(--nova-primary-soft)] text-[var(--nova-primary)] border-[var(--nova-primary)]/10',
+    warning: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20',
+    accent: 'bg-[var(--nova-primary-soft)] text-[var(--nova-primary)] border-[var(--nova-primary)]/10',
+    success: 'bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/20',
   };
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-      <Card hover>
-        <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${colors[color]}`}>
-          <Icon size={20} />
-        </div>
-        <p className="font-display text-2xl font-bold text-ink-900 dark:text-ink-50">
-          <AnimatedNumber value={value} suffix={suffix} decimals={decimals} />
-        </p>
-        <p className="text-sm text-ink-500 dark:text-ink-400">{label}</p>
-      </Card>
+    <motion.div
+      variants={variant}
+      whileHover={{
+        y: -2,
+        borderColor: 'rgba(37, 99, 235, 0.20)',
+        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)'
+      }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="rounded-2xl border border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-[#1E293B] dark:bg-[#111827] p-4 shadow-sm overflow-hidden"
+    >
+      <div className={`mb-3.5 flex h-9 w-9 items-center justify-center rounded-xl border ${colors[color]}`}>
+        <Icon size={18} />
+      </div>
+      <p className="font-display text-2xl font-bold text-[var(--nova-text)] dark:text-[#F8FAFC]">
+        <AnimatedNumber value={value} suffix={suffix} decimals={decimals} />
+      </p>
+      <p className="text-xs text-[var(--nova-text-secondary)] dark:text-[#94A3B8] mt-0.5">{label}</p>
     </motion.div>
   );
 }
 
+/* ============================================================================
+   SUB-COMPONENT: Quick Navigation Card
+   ============================================================================ */
+function QuickActionCard({
+  to,
+  label,
+  desc,
+  icon: Icon,
+  index,
+}: {
+  to: string;
+  label: string;
+  desc: string;
+  icon: typeof Calendar;
+  index: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 * index, duration: 0.5 }}
+      whileHover={{
+        y: -2,
+        borderColor: 'rgba(37, 99, 235, 0.20)',
+        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)'
+      }}
+      className="rounded-2xl border border-[var(--nova-border)] bg-[var(--nova-surface)] dark:border-[#1E293B] dark:bg-[#111827] p-4 flex flex-col justify-between overflow-hidden shadow-sm"
+    >
+      <div className="mb-4 flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--nova-primary-soft)] text-[var(--nova-primary)] border border-[var(--nova-primary)]/10">
+        <Icon size={15} />
+      </div>
+      <div>
+        <p className="text-xs font-bold text-[var(--nova-text)] dark:text-white leading-none">{label}</p>
+        <p className="text-[10px] text-[var(--nova-text-secondary)] dark:text-[#94A3B8] mt-1 leading-tight">{desc}</p>
+      </div>
+      <Link to={to} className="mt-3 text-[10px] font-bold text-[var(--nova-primary)] flex items-center gap-1 group">
+        <span>Go now</span>
+        <ArrowRight size={10} className="transition-transform duration-200 group-hover:translate-x-1" />
+      </Link>
+    </motion.div>
+  );
+}
+
+/* ============================================================================
+   SUB-COMPONENT: Weekly Study Chart
+   ============================================================================ */
 function WeeklyChart({ data }: { data: { day: string; minutes: number }[] }) {
   const max = Math.max(...data.map((d) => d.minutes), 1);
   return (
-    <div className="flex items-end justify-between gap-2 pt-2" style={{ height: 180 }}>
+    <div className="flex items-end justify-between gap-2 pt-2" style={{ height: 160 }}>
       {data.map((d, i) => (
         <div key={d.day} className="flex flex-1 flex-col items-center gap-2">
           <div className="flex w-full flex-1 items-end">
             <motion.div
-              className="w-full rounded-t-lg bg-gradient-to-t from-primary-500 to-accent-400"
+              className="w-full rounded-t-lg bg-[var(--nova-primary)] shadow-[0_0_12px_rgba(37,99,235,0.05)]"
               initial={{ height: 0 }}
-              animate={{ height: `${(d.minutes / max) * 140}px` }}
+              animate={{ height: `${(d.minutes / max) * 120}px` }}
               transition={{ duration: 0.8, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
             />
           </div>
-          <span className="text-xs text-ink-400 dark:text-ink-500">{d.day}</span>
+          <span className="text-[10px] font-semibold text-[var(--nova-text-secondary)]">{d.day}</span>
         </div>
       ))}
     </div>
   );
 }
 
+/* ============================================================================
+   SUB-COMPONENT: Adaptive Re-planning Banner
+   ============================================================================ */
 function AdaptiveBanner({ onAdjust }: { onAdjust: () => Promise<void> }) {
   const [adjusting, setAdjusting] = useState(false);
   return (
-    <Card padding="lg" className="border-warning-200 bg-warning-50 dark:border-warning-700 dark:bg-warning-700/20">
+    <div className="rounded-2xl border border-[var(--nova-warning)]/20 bg-[var(--nova-warning)]/5 p-5 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-100 text-warning-700 dark:bg-warning-700/40 dark:text-warning-200">
-            <RefreshCw size={20} />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--nova-warning)]/10 text-[var(--nova-warning)] border border-[var(--nova-warning)]/20">
+            <RefreshCw size={18} />
           </div>
           <div>
-            <h3 className="font-display text-base font-semibold text-ink-900 dark:text-ink-50">Your plan needs adjustment</h3>
-            <p className="text-sm text-ink-600 dark:text-ink-300">
-              You missed yesterday's Graph Algorithms session. Let's get you back on track.
+            <h3 className="font-display text-sm font-bold text-[var(--nova-text)] dark:text-white">Your study plan needs adjustment</h3>
+            <p className="text-xs text-[var(--nova-text-secondary)] dark:text-[#CBD5E1] mt-0.5">
+              You missed yesterday's Graph Algorithms block. Let's adapt your schedule.
             </p>
           </div>
         </div>
-        <Button onClick={async () => { setAdjusting(true); await onAdjust(); setAdjusting(false); }} loading={adjusting} className="shrink-0">
-          <RefreshCw size={14} /> Auto-adjust my plan
-        </Button>
+        
+        <motion.button
+          whileHover={{ scale: 1.02, backgroundColor: 'var(--nova-primary-hover)' }}
+          whileTap={{ scale: 0.98 }}
+          onClick={async () => { setAdjusting(true); await onAdjust(); setAdjusting(false); }}
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[var(--nova-primary)] px-4 text-xs font-bold text-white transition-all duration-200 shadow-sm"
+        >
+          {adjusting ? 'Adjusting...' : (
+            <>
+              <RefreshCw size={12} className={adjusting ? 'animate-spin' : ''} />
+              Auto-adjust study schedule
+            </>
+          )}
+        </motion.button>
       </div>
-    </Card>
+    </div>
   );
 }
 
