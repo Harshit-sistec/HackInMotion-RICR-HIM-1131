@@ -30,7 +30,7 @@ export const authService = {
   },
 
   async signup({ name, email, password }: SignupPayload): Promise<User> {
-    const data = await fetchApi('/auth/signup', {
+    const data = await fetchApi('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify({
         email,
