@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Mail, CheckCircle2, ArrowLeft, AlertCircle, Copy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { AuthShell, AuthSwitchLink } from '@/components/layout/AuthShell';
 import { Input } from '@/components/ui/Input';
@@ -11,18 +11,28 @@ export function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      await authService.forgotPassword(email);
+      const { devResetUrl: link } = await authService.forgotPassword(email);
+      setDevResetUrl(link ?? null);
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
       setLoading(false);
     }
+  };
+
+  const copyLink = async () => {
+    if (!devResetUrl) return;
+    await navigator.clipboard.writeText(devResetUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   // Compute overall authentication state for visual protagonist (AI Core)
@@ -61,6 +71,32 @@ export function ForgotPassword() {
             If an account exists for <span className="font-semibold text-primary-300">{email}</span>, a reset link is on
             its way.
           </p>
+
+          {devResetUrl && (
+            <div className="mt-4 rounded-xl border border-warning-500/30 bg-warning-500/10 p-3 text-left">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-warning-400">
+                Email delivery isn't configured yet — dev-only link
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <a
+                  href={devResetUrl}
+                  className="flex-1 truncate text-xs font-medium text-primary-300 underline underline-offset-2 hover:text-primary-200"
+                >
+                  {devResetUrl}
+                </a>
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  aria-label="Copy reset link"
+                  className="shrink-0 rounded-lg p-1.5 text-ink-300 transition hover:bg-white/10 hover:text-white"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+              {copied && <p className="mt-1 text-[10px] font-semibold text-primary-300">Copied!</p>}
+            </div>
+          )}
+
           <Link to="/login" className="mt-6 inline-block">
             <motion.button
               whileHover={{ scale: 1.02 }}

@@ -211,6 +211,21 @@ export interface GroupMember {
   name: string;
 }
 
+export type InvitationStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface GroupInvitation {
+  id: string;
+  groupId: string;
+  groupName: string;
+  invitedUserId: string;
+  invitedEmail: string;
+  invitedByUserId: string;
+  invitedByName: string;
+  status: InvitationStatus;
+  createdAt: string;
+  respondedAt?: string;
+}
+
 export interface GroupMessage {
   id: string;
   groupId: string;

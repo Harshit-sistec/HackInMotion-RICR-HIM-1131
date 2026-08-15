@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Users, Plus, Send, Sparkles, LogOut, ArrowLeft, MessagesSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Users,
+  Plus,
+  Send,
+  Sparkles,
+  LogOut,
+  ArrowLeft,
+  MessagesSquare,
+  UserPlus,
+  Check,
+  X as XIcon,
+  Mail,
+  UserMinus,
+} from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
@@ -12,8 +25,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuth } from '@/store/AuthContext';
 import { useToast } from '@/store/ToastContext';
 import { groupService } from '@/services/groupService';
+import { getSocket } from '@/services/socket';
 import { randomId } from '@/utils/async';
-import type { GroupMember, GroupMessage, StudyGroup } from '@/types';
+import type { GroupInvitation, GroupMember, GroupMessage, StudyGroup } from '@/types';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -25,6 +39,7 @@ export function StudyGroups() {
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<StudyGroup | null>(null);
+  const [invitations, setInvitations] = useState<GroupInvitation[]>([]);
 
   const refreshGroups = async () => {
     try {
@@ -43,8 +58,86 @@ export function StudyGroups() {
 
   useEffect(() => {
     refreshGroups();
+    groupService.listMyInvitations().then(setInvitations).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Real-time: new invitations, membership changes, and invite responses arrive over the
+  // socket connection established at login (see AuthContext) instead of polling.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onInvitationNew = (invitation: GroupInvitation) => {
+      setInvitations((prev) => [invitation, ...prev]);
+      showToast(`${invitation.invitedByName} invited you to join "${invitation.groupName}".`, 'info');
+    };
+
+    const onGroupUpdated = ({ group }: { group: StudyGroup; members: GroupMember[] }) => {
+      setGroups((prev) => {
+        const exists = prev.some((g) => g.id === group.id);
+        return exists ? prev.map((g) => (g.id === group.id ? { ...group, isMember: true } : g)) : [group, ...prev];
+      });
+      setActiveGroup((prev) => (prev && prev.id === group.id ? { ...group, isMember: true } : prev));
+    };
+
+    const onGroupRemoved = ({ groupId, groupName }: { groupId: string; groupName: string }) => {
+      setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, isMember: false } : g)));
+      setActiveGroup((prev) => {
+        if (prev?.id === groupId) {
+          showToast(`You were removed from ${groupName}.`, 'info');
+          return null;
+        }
+        return prev;
+      });
+    };
+
+    const onInvitationResponded = (payload: GroupInvitation & { respondedByName: string }) => {
+      showToast(
+        payload.status === 'accepted'
+          ? `${payload.respondedByName} accepted your invitation to ${payload.groupName}.`
+          : `${payload.respondedByName} declined your invitation to ${payload.groupName}.`,
+        payload.status === 'accepted' ? 'success' : 'info',
+      );
+    };
+
+    socket.on('invitation:new', onInvitationNew);
+    socket.on('group:updated', onGroupUpdated);
+    socket.on('group:removed', onGroupRemoved);
+    socket.on('invitation:responded', onInvitationResponded);
+
+    return () => {
+      socket.off('invitation:new', onInvitationNew);
+      socket.off('group:updated', onGroupUpdated);
+      socket.off('group:removed', onGroupRemoved);
+      socket.off('invitation:responded', onInvitationResponded);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleAcceptInvitation = async (invitation: GroupInvitation) => {
+    try {
+      const group = await groupService.acceptInvitation(invitation.id);
+      setInvitations((prev) => prev.filter((i) => i.id !== invitation.id));
+      if (group) {
+        setGroups((prev) =>
+          prev.some((g) => g.id === group.id) ? prev.map((g) => (g.id === group.id ? group : g)) : [group, ...prev],
+        );
+      }
+      showToast(`Joined ${invitation.groupName}.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not accept this invitation.', 'error');
+    }
+  };
+
+  const handleRejectInvitation = async (invitation: GroupInvitation) => {
+    try {
+      await groupService.rejectInvitation(invitation.id);
+      setInvitations((prev) => prev.filter((i) => i.id !== invitation.id));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not decline this invitation.', 'error');
+    }
+  };
 
   const handleJoin = async (group: StudyGroup) => {
     try {
@@ -90,6 +183,14 @@ export function StudyGroups() {
             </Button>
           }
         />
+
+        {invitations.length > 0 && (
+          <PendingInvitations
+            invitations={invitations}
+            onAccept={handleAcceptInvitation}
+            onReject={handleRejectInvitation}
+          />
+        )}
 
         {loadingGroups ? (
           <p className="text-sm text-ink-400">Loading groups…</p>
@@ -230,6 +331,50 @@ function CreateGroupModal({
   );
 }
 
+function PendingInvitations({
+  invitations,
+  onAccept,
+  onReject,
+}: {
+  invitations: GroupInvitation[];
+  onAccept: (invitation: GroupInvitation) => void;
+  onReject: (invitation: GroupInvitation) => void;
+}) {
+  return (
+    <Card padding="lg" className="mb-6 border-primary-200 bg-primary-50/50 dark:border-primary-800 dark:bg-primary-900/10">
+      <h3 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold text-ink-900 dark:text-ink-50">
+        <Mail size={16} /> Pending invitations ({invitations.length})
+      </h3>
+      <ul className="space-y-2">
+        <AnimatePresence initial={false}>
+          {invitations.map((invitation) => (
+            <motion.li
+              key={invitation.id}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3 dark:border-ink-800 dark:bg-ink-900"
+            >
+              <div>
+                <p className="text-sm font-medium text-ink-900 dark:text-ink-50">{invitation.groupName}</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">Invited by {invitation.invitedByName}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => onAccept(invitation)}>
+                  <Check size={14} /> Accept
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onReject(invitation)}>
+                  <XIcon size={14} /> Decline
+                </Button>
+              </div>
+            </motion.li>
+          ))}
+        </AnimatePresence>
+      </ul>
+    </Card>
+  );
+}
+
 function GroupChat({
   group,
   onBack,
@@ -248,8 +393,44 @@ function GroupChat({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [askingAI, setAskingAI] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastTimestampRef = useRef<string | undefined>(undefined);
+  const isOwner = group.createdBy === currentUserId;
+
+  const refreshMembers = () => {
+    groupService.getMembers(group.id).then(setMembers).catch(() => {});
+  };
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onGroupUpdated = ({ group: updated, members: m }: { group: StudyGroup; members: GroupMember[] }) => {
+      if (updated.id === group.id) setMembers(m);
+    };
+    const onGroupRemoved = ({ groupId }: { groupId: string }) => {
+      if (groupId === group.id) onBack();
+    };
+
+    socket.on('group:updated', onGroupUpdated);
+    socket.on('group:removed', onGroupRemoved);
+    return () => {
+      socket.off('group:updated', onGroupUpdated);
+      socket.off('group:removed', onGroupRemoved);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group.id]);
+
+  const handleRemoveMember = async (member: GroupMember) => {
+    try {
+      await groupService.removeMember(group.id, member.id);
+      refreshMembers();
+      showToast(`Removed ${member.name} from the group.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not remove this member.', 'error');
+    }
+  };
 
   const fetchNewMessages = async () => {
     try {
@@ -269,7 +450,7 @@ function GroupChat({
   useEffect(() => {
     setMessages([]);
     lastTimestampRef.current = undefined;
-    groupService.getGroup(group.id).then(({ members: m }) => setMembers(m));
+    refreshMembers();
     fetchNewMessages();
     const interval = setInterval(fetchNewMessages, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
@@ -322,9 +503,14 @@ function GroupChat({
           >
             <ArrowLeft size={16} /> All groups
           </button>
-          <Button variant="ghost" size="sm" onClick={onLeave}>
-            <LogOut size={14} /> Leave group
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
+              <UserPlus size={14} /> Invite
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onLeave}>
+              <LogOut size={14} /> Leave group
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
@@ -391,11 +577,23 @@ function GroupChat({
               </h3>
               <ul className="space-y-2">
                 {members.map((m) => (
-                  <li key={m.id} className="flex items-center gap-2 text-sm text-ink-700 dark:text-ink-200">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
-                      {m.name.slice(0, 1).toUpperCase()}
+                  <li key={m.id} className="flex items-center justify-between gap-2 text-sm text-ink-700 dark:text-ink-200">
+                    <span className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+                        {m.name.slice(0, 1).toUpperCase()}
+                      </span>
+                      {m.name}
+                      {m.id === group.createdBy && <Badge tone="neutral">Owner</Badge>}
                     </span>
-                    {m.name}
+                    {isOwner && m.id !== group.createdBy && (
+                      <button
+                        onClick={() => handleRemoveMember(m)}
+                        aria-label={`Remove ${m.name}`}
+                        className="text-ink-400 transition hover:text-error-500"
+                      >
+                        <UserMinus size={14} />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -415,7 +613,52 @@ function GroupChat({
           </div>
         </div>
       </div>
+
+      <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} groupId={group.id} />
     </AppLayout>
+  );
+}
+
+function InviteMemberModal({ open, onClose, groupId }: { open: boolean; onClose: () => void; groupId: string }) {
+  const { showToast } = useToast();
+  const [email, setEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+
+  const handleInvite = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    setInviting(true);
+    try {
+      await groupService.inviteMember(groupId, trimmed);
+      showToast(`Invitation sent to ${trimmed}.`);
+      setEmail('');
+      onClose();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not send this invitation.', 'error');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Invite a member" size="sm">
+      <div className="space-y-4">
+        <Input
+          label="Email address"
+          type="email"
+          placeholder="teammate@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+          leftIcon={<Mail size={16} />}
+          hint="They must already have a Cadence account."
+          required
+        />
+        <Button fullWidth onClick={handleInvite} loading={inviting} disabled={!email.trim()}>
+          <UserPlus size={16} /> Send Invitation
+        </Button>
+      </div>
+    </Modal>
   );
 }
 

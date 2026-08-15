@@ -53,8 +53,27 @@ export const authService = {
     return transformBackendUser(data.user);
   },
 
-  async forgotPassword(email: string): Promise<{ message: string }> {
-    return { message: `If an account exists for ${email}, a reset link is on its way.` };
+  async forgotPassword(email: string): Promise<{ message: string; devResetUrl?: string }> {
+    return fetchApi('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async verifyResetToken(token: string): Promise<boolean> {
+    try {
+      await fetchApi(`/auth/verify-reset-token?token=${encodeURIComponent(token)}`, { method: 'GET' });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  async resetPassword(token: string, password: string): Promise<{ message: string }> {
+    return fetchApi('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    });
   },
 
   async fetchCurrentUser(): Promise<User | null> {
@@ -85,5 +104,9 @@ export const authService = {
 
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
+  },
+
+  getToken(): string | null {
+    return localStorage.getItem(TOKEN_KEY);
   },
 };

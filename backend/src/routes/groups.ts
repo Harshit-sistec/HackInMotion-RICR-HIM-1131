@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { groupStore, groupMessageStore, type StoredGroup } from '../lib/groups.js';
+import { groupInvitationStore } from '../lib/groupInvitations.js';
 import { userStore } from '../lib/users.js';
 import { generateTutorReply, parseTutorReply, GeminiError } from '../lib/gemini.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
+import { emitToUser, emitToUsers } from '../lib/socket.js';
 
 export const groupsRouter = Router();
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function summarize(group: StoredGroup, userId: string) {
   return {
@@ -23,6 +27,24 @@ async function requireMembership(groupId: string, userId: string): Promise<Store
   const group = await groupStore.findById(groupId);
   if (!group || !group.memberIds.includes(userId)) return null;
   return group;
+}
+
+async function resolveMembers(group: StoredGroup) {
+  return Promise.all(
+    group.memberIds.map(async (id) => {
+      const user = await userStore.findById(id);
+      return user ? { id: user.id, name: user.full_name } : { id, name: 'Unknown member' };
+    }),
+  );
+}
+
+// Notifies every current member so their group list / member sidebar update without a reload.
+async function broadcastGroupUpdate(group: StoredGroup): Promise<void> {
+  const members = await resolveMembers(group);
+  emitToUsers(group.memberIds, 'group:updated', {
+    group: { ...summarize(group, group.createdBy), isMember: true },
+    members,
+  });
 }
 
 groupsRouter.get('/', requireAuth, async (req: AuthedRequest, res) => {
@@ -54,18 +76,179 @@ groupsRouter.post('/', requireAuth, async (req: AuthedRequest, res) => {
   res.json({ data: { group: summarize(group, req.userId!) } });
 });
 
+groupsRouter.post('/invite', requireAuth, async (req: AuthedRequest, res) => {
+  const { groupId, email } = req.body ?? {};
+
+  if (!groupId || typeof groupId !== 'string') {
+    res.status(400).json({ error: { message: 'A group is required.' } });
+    return;
+  }
+  if (!email || typeof email !== 'string' || !EMAIL_RE.test(email.trim())) {
+    res.status(400).json({ error: { message: 'A valid email address is required.' } });
+    return;
+  }
+
+  const group = await requireMembership(groupId, req.userId!);
+  if (!group) {
+    res.status(403).json({ error: { message: 'Join this group before inviting others.' } });
+    return;
+  }
+
+  const invitedUser = await userStore.findByEmail(email.trim().toLowerCase());
+  if (!invitedUser) {
+    res.status(404).json({ error: { message: 'No account exists for that email.' } });
+    return;
+  }
+  if (invitedUser.id === req.userId) {
+    res.status(400).json({ error: { message: "You can't invite yourself." } });
+    return;
+  }
+  if (group.memberIds.includes(invitedUser.id)) {
+    res.status(400).json({ error: { message: 'This user is already a member.' } });
+    return;
+  }
+  const existing = await groupInvitationStore.findPending(groupId, invitedUser.id);
+  if (existing) {
+    res.status(409).json({ error: { message: 'An invitation is already pending for this user.' } });
+    return;
+  }
+
+  const inviter = await userStore.findById(req.userId!);
+  const invitation = await groupInvitationStore.create({
+    groupId: group.id,
+    groupName: group.name,
+    invitedUserId: invitedUser.id,
+    invitedEmail: invitedUser.email,
+    invitedByUserId: req.userId!,
+    invitedByName: inviter?.full_name ?? 'A member',
+  });
+
+  emitToUser(invitedUser.id, 'invitation:new', invitation);
+  res.json({ data: { invitation } });
+});
+
+groupsRouter.get('/invitations', requireAuth, async (req: AuthedRequest, res) => {
+  const groupId = typeof req.query.groupId === 'string' ? req.query.groupId : undefined;
+
+  if (groupId) {
+    const group = await requireMembership(groupId, req.userId!);
+    if (!group) {
+      res.status(403).json({ error: { message: 'Join this group to view its invitations.' } });
+      return;
+    }
+    const invitations = await groupInvitationStore.listForGroup(groupId);
+    res.json({ data: { invitations } });
+    return;
+  }
+
+  const invitations = await groupInvitationStore.listForUser(req.userId!, 'pending');
+  res.json({ data: { invitations } });
+});
+
+groupsRouter.post('/accept', requireAuth, async (req: AuthedRequest, res) => {
+  const { invitationId } = req.body ?? {};
+  if (!invitationId || typeof invitationId !== 'string') {
+    res.status(400).json({ error: { message: 'An invitation is required.' } });
+    return;
+  }
+
+  const invitation = await groupInvitationStore.findById(invitationId);
+  if (!invitation || invitation.invitedUserId !== req.userId || invitation.status !== 'pending') {
+    res.status(404).json({ error: { message: 'This invitation is no longer available.' } });
+    return;
+  }
+
+  const responded = await groupInvitationStore.respond(invitationId, 'accepted');
+  if (!responded) {
+    res.status(409).json({ error: { message: 'This invitation was already responded to.' } });
+    return;
+  }
+
+  const group = await groupStore.addMember(invitation.groupId, req.userId!);
+  if (group) await broadcastGroupUpdate(group);
+  emitToUser(invitation.invitedByUserId, 'invitation:responded', {
+    ...responded,
+    respondedByName: (await userStore.findById(req.userId!))?.full_name ?? 'A member',
+  });
+
+  res.json({ data: { group: group ? summarize(group, req.userId!) : null, invitation: responded } });
+});
+
+groupsRouter.post('/reject', requireAuth, async (req: AuthedRequest, res) => {
+  const { invitationId } = req.body ?? {};
+  if (!invitationId || typeof invitationId !== 'string') {
+    res.status(400).json({ error: { message: 'An invitation is required.' } });
+    return;
+  }
+
+  const invitation = await groupInvitationStore.findById(invitationId);
+  if (!invitation || invitation.invitedUserId !== req.userId || invitation.status !== 'pending') {
+    res.status(404).json({ error: { message: 'This invitation is no longer available.' } });
+    return;
+  }
+
+  const responded = await groupInvitationStore.respond(invitationId, 'rejected');
+  if (!responded) {
+    res.status(409).json({ error: { message: 'This invitation was already responded to.' } });
+    return;
+  }
+
+  emitToUser(invitation.invitedByUserId, 'invitation:responded', {
+    ...responded,
+    respondedByName: (await userStore.findById(req.userId!))?.full_name ?? 'A member',
+  });
+  res.json({ data: { invitation: responded } });
+});
+
+groupsRouter.get('/members', requireAuth, async (req: AuthedRequest, res) => {
+  const groupId = typeof req.query.groupId === 'string' ? req.query.groupId : undefined;
+  if (!groupId) {
+    res.status(400).json({ error: { message: 'A group is required.' } });
+    return;
+  }
+  const group = await requireMembership(groupId, req.userId!);
+  if (!group) {
+    res.status(403).json({ error: { message: 'Join this group to view its members.' } });
+    return;
+  }
+  const members = await resolveMembers(group);
+  res.json({ data: { members } });
+});
+
+groupsRouter.post('/remove-member', requireAuth, async (req: AuthedRequest, res) => {
+  const { groupId, userId } = req.body ?? {};
+  if (!groupId || typeof groupId !== 'string' || !userId || typeof userId !== 'string') {
+    res.status(400).json({ error: { message: 'A group and member are required.' } });
+    return;
+  }
+  const group = await groupStore.findById(groupId);
+  if (!group) {
+    res.status(404).json({ error: { message: 'Group not found.' } });
+    return;
+  }
+  if (group.createdBy !== req.userId) {
+    res.status(403).json({ error: { message: 'Only the group owner can remove members.' } });
+    return;
+  }
+  if (userId === group.createdBy) {
+    res.status(400).json({ error: { message: 'The group owner cannot be removed.' } });
+    return;
+  }
+
+  const updated = await groupStore.removeMember(groupId, userId);
+  if (updated) await broadcastGroupUpdate(updated);
+  emitToUser(userId, 'group:removed', { groupId, groupName: group.name });
+
+  res.json({ data: { group: updated ? summarize(updated, req.userId!) : null } });
+});
+
 groupsRouter.get('/:id', requireAuth, async (req: AuthedRequest, res) => {
   const group = await groupStore.findById(req.params.id);
   if (!group) {
     res.status(404).json({ error: { message: 'Group not found.' } });
     return;
   }
-  const members = await Promise.all(
-    group.memberIds.map(async (id) => {
-      const user = await userStore.findById(id);
-      return user ? { id: user.id, name: user.full_name } : { id, name: 'Unknown member' };
-    }),
-  );
+  const members = await resolveMembers(group);
   res.json({ data: { group: summarize(group, req.userId!), members } });
 });
 
@@ -76,6 +259,7 @@ groupsRouter.post('/:id/join', requireAuth, async (req: AuthedRequest, res) => {
     return;
   }
   const updated = await groupStore.addMember(req.params.id, req.userId!);
+  if (updated) await broadcastGroupUpdate(updated);
   res.json({ data: { group: summarize(updated!, req.userId!) } });
 });
 
@@ -86,6 +270,7 @@ groupsRouter.post('/:id/leave', requireAuth, async (req: AuthedRequest, res) => 
     return;
   }
   const updated = await groupStore.removeMember(req.params.id, req.userId!);
+  if (updated) await broadcastGroupUpdate(updated);
   res.json({ data: { group: summarize(updated!, req.userId!) } });
 });
 

@@ -1,3 +1,4 @@
+import http from 'node:http';
 import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
@@ -10,8 +11,11 @@ import { groupsRouter } from './routes/groups.js';
 import { goalsRouter } from './routes/goals.js';
 import { progressRouter } from './routes/progress.js';
 import { getDb } from './lib/db.js';
+import { initSocket } from './lib/socket.js';
 
 const app = express();
+const httpServer = http.createServer(app);
+initSocket(httpServer);
 
 app.use(cors({ origin: config.clientOrigin }));
 app.use(express.json({ limit: '1mb' }));
@@ -70,7 +74,7 @@ async function start() {
     );
   }
 
-  app.listen(config.port, () => {
+  httpServer.listen(config.port, () => {
     console.log(`[nova-server] listening on http://localhost:${config.port} using model ${config.geminiModel}`);
   });
 }

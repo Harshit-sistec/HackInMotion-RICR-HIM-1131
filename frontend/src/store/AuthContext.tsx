@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { AuthCredentials, SignupPayload, User } from '@/types';
 import { authService } from '@/services/authService';
+import { connectSocket, disconnectSocket } from '@/services/socket';
 
 interface AuthContextValue {
   user: User | null;
@@ -22,29 +23,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authService.fetchCurrentUser().then((fetchedUser) => {
       setUser(fetchedUser);
       setIsInitializing(false);
+      const token = authService.getToken();
+      if (fetchedUser && token) connectSocket(token);
     });
   }, []);
 
   const login = async (credentials: AuthCredentials) => {
     const loggedIn = await authService.login(credentials);
     setUser(loggedIn);
+    const token = authService.getToken();
+    if (token) connectSocket(token);
     return loggedIn;
   };
 
   const signup = async (payload: SignupPayload) => {
     const created = await authService.signup(payload);
     setUser(created);
+    const token = authService.getToken();
+    if (token) connectSocket(token);
     return created;
   };
 
   const loginWithGoogle = async (credential: string) => {
     const loggedIn = await authService.loginWithGoogle(credential);
     setUser(loggedIn);
+    const token = authService.getToken();
+    if (token) connectSocket(token);
     return loggedIn;
   };
 
   const logout = () => {
     authService.logout();
+    disconnectSocket();
     setUser(null);
   };
 

@@ -78,4 +78,10 @@ export const userStore = {
     if (!user.passwordHash) return false;
     return bcrypt.compare(password, user.passwordHash);
   },
+
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    const col = await usersCollection();
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await col.updateOne({ id: userId }, { $set: { passwordHash } });
+  },
 };
