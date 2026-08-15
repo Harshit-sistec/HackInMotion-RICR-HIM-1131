@@ -2,8 +2,15 @@ import { Router } from 'express';
 import { userStore, type StoredUser } from '../lib/users.js';
 import { verifyGoogleCredential, GoogleAuthError } from '../lib/googleAuth.js';
 import { requireAuth, signToken, type AuthedRequest } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rateLimit.js';
+import { passwordResetTokenStore } from '../lib/passwordResetTokens.js';
+import { sendPasswordResetEmail } from '../lib/email.js';
+import { config } from '../config.js';
 
 export const authRouter = Router();
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GENERIC_FORGOT_MESSAGE = 'If an account exists for that email, a reset link is on its way.';
 
 function toBackendUser(user: StoredUser) {
   return {
@@ -75,6 +82,73 @@ authRouter.post('/google', async (req, res) => {
     console.error('Google sign-in failed:', err);
     res.status(500).json({ error: { message: 'Something went wrong. Please try again.' } });
   }
+});
+
+authRouter.post('/forgot-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
+  const { email } = req.body ?? {};
+
+  if (!email || typeof email !== 'string' || !EMAIL_RE.test(email.trim())) {
+    res.status(400).json({ error: { message: 'A valid email address is required.' } });
+    return;
+  }
+
+  // Only populated when SMTP isn't configured, so the link is still reachable in local dev.
+  // Never set once real SMTP credentials are added — see lib/email.ts.
+  let devResetUrl: string | undefined;
+
+  try {
+    const user = await userStore.findByEmail(email.trim().toLowerCase());
+    if (user) {
+      const token = await passwordResetTokenStore.create(user.id);
+      const resetUrl = `${config.clientOrigin}/reset-password?token=${token}`;
+      await sendPasswordResetEmail(user.email, resetUrl);
+      if (!config.smtpHost) devResetUrl = resetUrl;
+    }
+  } catch (err) {
+    console.error('Forgot-password request failed:', err);
+  }
+
+  // Always return the same generic response so we never reveal whether an email is registered.
+  res.json({ data: { message: GENERIC_FORGOT_MESSAGE, devResetUrl } });
+});
+
+authRouter.get('/verify-reset-token', rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }), async (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+
+  if (!token) {
+    res.status(400).json({ error: { message: 'A reset token is required.' } });
+    return;
+  }
+
+  const match = await passwordResetTokenStore.findValid(token);
+  if (!match) {
+    res.status(400).json({ error: { message: 'This reset link is invalid or has expired.' } });
+    return;
+  }
+
+  res.json({ data: { valid: true } });
+});
+
+authRouter.post('/reset-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }), async (req, res) => {
+  const { token, password } = req.body ?? {};
+
+  if (!token || typeof token !== 'string') {
+    res.status(400).json({ error: { message: 'A reset token is required.' } });
+    return;
+  }
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    res.status(400).json({ error: { message: 'Password must be at least 6 characters.' } });
+    return;
+  }
+
+  const consumed = await passwordResetTokenStore.consume(token);
+  if (!consumed) {
+    res.status(400).json({ error: { message: 'This reset link is invalid or has expired.' } });
+    return;
+  }
+
+  await userStore.updatePassword(consumed.userId, password);
+  res.json({ data: { message: 'Password updated. You can now sign in with your new password.' } });
 });
 
 authRouter.get('/session', requireAuth, async (req: AuthedRequest, res) => {

@@ -1,4 +1,4 @@
-import type { GroupMember, GroupMessage, StudyGroup } from '@/types';
+import type { GroupInvitation, GroupMember, GroupMessage, StudyGroup } from '@/types';
 import { fetchApi } from './api';
 
 export const groupService = {
@@ -45,5 +45,45 @@ export const groupService = {
       method: 'POST',
       body: JSON.stringify({ question }),
     })) as { userMessage: GroupMessage; aiMessage: GroupMessage };
+  },
+
+  async inviteMember(groupId: string, email: string): Promise<GroupInvitation> {
+    const data = (await fetchApi('/groups/invite', {
+      method: 'POST',
+      body: JSON.stringify({ groupId, email }),
+    })) as { invitation: GroupInvitation };
+    return data.invitation;
+  },
+
+  async listMyInvitations(): Promise<GroupInvitation[]> {
+    const data = (await fetchApi('/groups/invitations')) as { invitations: GroupInvitation[] };
+    return data.invitations;
+  },
+
+  async acceptInvitation(invitationId: string): Promise<StudyGroup | null> {
+    const data = (await fetchApi('/groups/accept', {
+      method: 'POST',
+      body: JSON.stringify({ invitationId }),
+    })) as { group: StudyGroup | null };
+    return data.group;
+  },
+
+  async rejectInvitation(invitationId: string): Promise<void> {
+    await fetchApi('/groups/reject', { method: 'POST', body: JSON.stringify({ invitationId }) });
+  },
+
+  async getMembers(groupId: string): Promise<GroupMember[]> {
+    const data = (await fetchApi(`/groups/members?groupId=${encodeURIComponent(groupId)}`)) as {
+      members: GroupMember[];
+    };
+    return data.members;
+  },
+
+  async removeMember(groupId: string, userId: string): Promise<StudyGroup | null> {
+    const data = (await fetchApi('/groups/remove-member', {
+      method: 'POST',
+      body: JSON.stringify({ groupId, userId }),
+    })) as { group: StudyGroup | null };
+    return data.group;
   },
 };
