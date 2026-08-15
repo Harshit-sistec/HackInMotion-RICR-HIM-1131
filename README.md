@@ -40,7 +40,12 @@ the backend so API keys and database credentials stay server-side.
   Gemini analyzes it (topics, priorities, difficulty spread) and generates exam questions grounded
   in that document's actual content.
 - **Manual mock test generation** — generate practice questions for any subject/topic/difficulty
+<<<<<<< HEAD
   without needing a document, also via Gemini.
+=======
+  without needing a document, also 
+  via Gemini.
+>>>>>>> c8bab08 ("update frontend and backend")
 - **AI-generated study plans** — Gemini builds a real, ordered session-by-session schedule from
   your goal, subjects, deadline, and weak topics.
 - **Real progress & achievements** — computed live from your actual study plan completions and
