@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Logo } from '@/components/ui/Logo';
+import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
 
@@ -52,13 +53,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
     logout();
     navigate('/');
   };
-
-  const initials = (user?.name ?? 'U')
-    .split(' ')
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 
   const SidebarContent = (
     <div className="flex h-full flex-col justify-between py-6">
@@ -131,12 +125,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
             {/* Avatar */}
             <div className="relative shrink-0">
               <div className="absolute -inset-[1.5px] rounded-full bg-[var(--nova-primary)] dark:bg-[#3B82F6] opacity-75 blur-[0.5px]" />
-              <div
-                className="relative flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white border border-white dark:border-[#111827]"
-                style={{ backgroundColor: 'var(--nova-primary)' }}
-              >
-                {initials}
-              </div>
+              <Avatar
+                user={user}
+                size={32}
+                className="relative text-xs border border-white dark:border-[#111827]"
+              />
               <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-[var(--nova-primary)] border border-white dark:border-[#111827] animate-pulse" />
             </div>
 
@@ -244,12 +237,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div className="h-px w-4 bg-[var(--nova-border)] dark:bg-white/10" />
 
             {/* Quick Profile avatar view */}
-            <div
-              className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white border border-[var(--nova-border)] shadow-soft"
-              style={{ backgroundColor: 'var(--nova-primary)' }}
-            >
-              {initials}
-            </div>
+            <Avatar user={user} size={32} className="text-xs border border-[var(--nova-border)] shadow-soft" />
           </div>
         </header>
 

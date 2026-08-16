@@ -7,6 +7,7 @@ export interface User {
   name: string;
   email: string;
   avatarColor: string;
+  avatarImage?: string | null;
   createdAt: string;
   dailyStudyTargetMinutes: number;
   preferredStudyTime: 'morning' | 'afternoon' | 'evening' | 'night';

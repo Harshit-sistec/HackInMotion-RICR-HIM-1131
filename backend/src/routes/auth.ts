@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { userStore, type StoredUser } from '../lib/users.js';
 import { verifyGoogleCredential, GoogleAuthError } from '../lib/googleAuth.js';
 import { requireAuth, signToken, type AuthedRequest } from '../middleware/auth.js';
@@ -12,12 +13,22 @@ export const authRouter = Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GENERIC_FORGOT_MESSAGE = 'If an account exists for that email, a reset link is on its way.';
 
+const AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (AVATAR_MIME_TYPES.has(file.mimetype)) cb(null, true);
+    else cb(new Error('Unsupported file type. Please upload a JPG, PNG, or WEBP image.'));
+  },
+});
+
 function toBackendUser(user: StoredUser) {
   return {
     id: user.id,
     email: user.email,
     created_at: user.created_at,
-    user_metadata: { full_name: user.full_name },
+    user_metadata: { full_name: user.full_name, avatar_image: user.avatar_image ?? null },
   };
 }
 
@@ -149,6 +160,32 @@ authRouter.post('/reset-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 10
 
   await userStore.updatePassword(consumed.userId, password);
   res.json({ data: { message: 'Password updated. You can now sign in with your new password.' } });
+});
+
+authRouter.post('/avatar', requireAuth, (req: AuthedRequest, res) => {
+  avatarUpload.single('avatar')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      const message =
+        uploadErr instanceof multer.MulterError && uploadErr.code === 'LIMIT_FILE_SIZE'
+          ? 'Image is too large. Maximum size is 2MB.'
+          : uploadErr instanceof Error
+            ? uploadErr.message
+            : 'Upload failed.';
+      res.status(400).json({ error: { message } });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ error: { message: 'No image was uploaded.' } });
+      return;
+    }
+
+    const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    await userStore.updateAvatar(req.userId!, dataUrl);
+
+    const user = await userStore.findById(req.userId!);
+    res.json({ data: { user: toBackendUser(user!) } });
+  });
 });
 
 authRouter.get('/session', requireAuth, async (req: AuthedRequest, res) => {

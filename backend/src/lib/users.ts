@@ -8,6 +8,7 @@ export interface StoredUser {
   googleId?: string;
   full_name: string;
   created_at: string;
+  avatar_image?: string;
 }
 
 async function usersCollection() {
@@ -83,5 +84,10 @@ export const userStore = {
     const col = await usersCollection();
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await col.updateOne({ id: userId }, { $set: { passwordHash } });
+  },
+
+  async updateAvatar(userId: string, avatarImage: string): Promise<void> {
+    const col = await usersCollection();
+    await col.updateOne({ id: userId }, { $set: { avatar_image: avatarImage } });
   },
 };

@@ -1,32 +1,57 @@
-import { useState } from 'react';
-import { Mail, Calendar, Target, Zap, Flame, BookOpen, Edit3, Check } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Mail, Calendar, Target, Zap, Flame, BookOpen, Edit3, Check, Camera } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/store/AuthContext';
 import { useAppData } from '@/store/AppDataContext';
 import { useToast } from '@/store/ToastContext';
 
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+
 export function Profile() {
-  const { user } = useAuth();
+  const { user, uploadAvatar } = useAuth();
   const { goal, progress } = useAppData();
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? '');
-
-  const initials = (user?.name ?? 'U')
-    .split(' ')
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const save = () => {
     setEditing(false);
     showToast('Profile updated.');
+  };
+
+  const handleAvatarPick = () => fileInputRef.current?.click();
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      showToast('Please choose a JPG, PNG, or WEBP image.');
+      return;
+    }
+    if (file.size > MAX_AVATAR_BYTES) {
+      showToast('Image is too large. Maximum size is 2MB.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await uploadAvatar(file);
+      showToast('Profile photo updated.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not upload your photo.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -38,11 +63,24 @@ export function Profile() {
           {/* Profile card */}
           <Card padding="lg" className="lg:col-span-1">
             <div className="flex flex-col items-center text-center">
-              <div
-                className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white shadow-soft"
-                style={{ backgroundColor: user?.avatarColor ?? '#3763E8' }}
-              >
-                {initials}
+              <div className="relative">
+                <Avatar user={user} size={80} className="text-2xl shadow-soft" />
+                <button
+                  type="button"
+                  onClick={handleAvatarPick}
+                  disabled={uploading}
+                  aria-label="Change profile photo"
+                  className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-primary-600 text-white shadow-soft transition hover:bg-primary-700 disabled:opacity-60"
+                >
+                  <Camera size={13} />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
               </div>
               {editing ? (
                 <div className="mt-4 w-full max-w-xs">

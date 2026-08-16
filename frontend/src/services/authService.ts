@@ -1,5 +1,5 @@
 import type { AuthCredentials, SignupPayload, User } from '@/types';
-import { fetchApi } from './api';
+import { fetchApi, API_URL } from './api';
 
 const TOKEN_KEY = 'nova_auth_token';
 
@@ -9,6 +9,7 @@ function transformBackendUser(dataUser: any): User {
     email: dataUser.email,
     name: dataUser.user_metadata?.full_name || dataUser.email.split('@')[0],
     avatarColor: '#17B891',
+    avatarImage: dataUser.user_metadata?.avatar_image ?? null,
     createdAt: dataUser.created_at,
     dailyStudyTargetMinutes: 60,
     preferredStudyTime: 'evening',
@@ -100,6 +101,25 @@ export const authService = {
     // to "update" the user without local storage, we'd normally call the backend.
     // As a stub for the frontend UI requirements:
     return { ...current, ...patch } as User;
+  },
+
+  async uploadAvatar(file: File): Promise<User> {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetch(`${API_URL}/auth/avatar`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: formData,
+    });
+
+    const json = await response.json();
+    if (!response.ok || json.error) {
+      throw new Error(json.error?.message || 'Could not upload your photo. Please try again.');
+    }
+
+    return transformBackendUser(json.data.user);
   },
 
   logout(): void {

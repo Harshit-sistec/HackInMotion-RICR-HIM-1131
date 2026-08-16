@@ -11,6 +11,7 @@ interface AuthContextValue {
   loginWithGoogle: (credential: string) => Promise<User>;
   logout: () => void;
   updateUser: (patch: Partial<User>) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -63,8 +64,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updated);
   };
 
+  const uploadAvatar = async (file: File) => {
+    const updated = await authService.uploadAvatar(file);
+    setUser(updated);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isInitializing, login, signup, loginWithGoogle, logout, updateUser }}>
+    <AuthContext.Provider
+      value={{ user, isInitializing, login, signup, loginWithGoogle, logout, updateUser, uploadAvatar }}
+    >
       {children}
     </AuthContext.Provider>
   );
