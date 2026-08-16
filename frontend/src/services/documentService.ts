@@ -1,6 +1,5 @@
 import type { DocumentAnalysisResponse, MockTest, Question } from '@/types';
 import { API_URL } from './api';
-import { randomId } from '@/utils/async';
 
 const TOKEN_KEY = 'nova_auth_token';
 const SECONDS_PER_QUESTION = 90;
@@ -64,23 +63,19 @@ export const documentService = {
       throw new Error('Could not reach the server. Check your connection and try again.');
     }
 
-    const data = (await parseResponse(response)) as { questions: Omit<Question, 'id'>[] };
-    const questions: Question[] = data.questions.map((q) => ({
-      ...q,
-      id: randomId('q'),
-    }));
+    const data = (await parseResponse(response)) as { testId: string; questions: Question[] };
 
     return {
-      id: randomId('test'),
+      id: data.testId,
       config: {
         subject: fileName,
         topics: [],
         difficulty: config.difficulty,
-        numQuestions: questions.length,
+        numQuestions: data.questions.length,
       },
-      questions,
+      questions: data.questions,
       createdAt: new Date().toISOString(),
-      timeLimitSeconds: questions.length * SECONDS_PER_QUESTION,
+      timeLimitSeconds: data.questions.length * SECONDS_PER_QUESTION,
     };
   },
 };

@@ -4,6 +4,7 @@ import multer from 'multer';
 import { extractDocument, ExtractionError } from '../lib/extractText.js';
 import { analyzeDocument, generateQuestionsFromDocument, GeminiError } from '../lib/gemini.js';
 import { documentStore } from '../lib/documentStore.js';
+import { mockTestSessionStore } from '../lib/mockTestSessions.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 
 export const documentsRouter = Router();
@@ -100,7 +101,8 @@ documentsRouter.post('/generate-test', requireAuth, async (req: AuthedRequest, r
       numQuestions: count,
       difficulty: diff,
     });
-    res.json({ data: { fileName: doc.fileName, questions } });
+    const session = mockTestSessionStore.create(req.userId!, doc.fileName, questions);
+    res.json({ data: { fileName: doc.fileName, testId: session.id, questions: session.questions } });
   } catch (err) {
     if (err instanceof GeminiError) {
       res.status(502).json({ error: { message: err.message } });

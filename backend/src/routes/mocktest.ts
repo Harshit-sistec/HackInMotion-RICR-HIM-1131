@@ -1,19 +1,14 @@
 import { Router } from 'express';
 import { generateQuestionsFromTopic, suggestTopics, GeminiError } from '../lib/gemini.js';
 import { assessmentStore } from '../lib/assessments.js';
+import { mockTestSessionStore } from '../lib/mockTestSessions.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 
 export const mocktestRouter = Router();
 
 const DIFFICULTIES = ['easy', 'medium', 'hard', 'mixed'];
 
-interface SubmittedQuestion {
-  id: string;
-  correctAnswer: string;
-  topic: string;
-}
-
-mocktestRouter.post('/generate', requireAuth, async (req, res) => {
+mocktestRouter.post('/generate', requireAuth, async (req: AuthedRequest, res) => {
   const { subject, topics, difficulty, numQuestions } = req.body ?? {};
 
   if (!subject || typeof subject !== 'string') {
@@ -32,7 +27,8 @@ mocktestRouter.post('/generate', requireAuth, async (req, res) => {
       difficulty: diff,
       numQuestions: count,
     });
-    res.json({ data: { questions } });
+    const session = mockTestSessionStore.create(req.userId!, subject, questions);
+    res.json({ data: { testId: session.id, questions: session.questions } });
   } catch (err) {
     if (err instanceof GeminiError) {
       res.status(502).json({ error: { message: err.message } });
@@ -67,48 +63,49 @@ mocktestRouter.post('/suggest-topics', requireAuth, async (req, res) => {
 });
 
 mocktestRouter.post('/submit', requireAuth, async (req: AuthedRequest, res) => {
-  const { subject, questions, answers, timeSpentSeconds } = req.body ?? {};
+  const { testId, answers, timeSpentSeconds } = req.body ?? {};
 
-  if (!subject || typeof subject !== 'string') {
-    res.status(400).json({ error: { message: 'subject is required.' } });
-    return;
-  }
-  if (!Array.isArray(questions) || questions.length === 0) {
-    res.status(400).json({ error: { message: 'questions are required.' } });
+  if (!testId || typeof testId !== 'string') {
+    res.status(400).json({ error: { message: 'testId is required.' } });
     return;
   }
 
-  const safeQuestions = (questions as SubmittedQuestion[]).filter(
-    (q) => q && typeof q.id === 'string' && typeof q.correctAnswer === 'string' && typeof q.topic === 'string',
-  );
+  // Grade against the question set generated and stored server-side at /generate time —
+  // never trust correct-answer data supplied by the client, which could be tampered with.
+  const session = mockTestSessionStore.get(testId, req.userId!);
+  if (!session) {
+    res.status(404).json({ error: { message: 'This test session has expired. Please generate a new test.' } });
+    return;
+  }
+
   const safeAnswers: Record<string, string> = answers && typeof answers === 'object' ? answers : {};
 
-  const perQuestion = safeQuestions.map((q) => ({
+  const perQuestion = session.questions.map((q) => ({
     questionId: q.id,
     correct: (safeAnswers[q.id] ?? '').trim().toLowerCase() === q.correctAnswer.trim().toLowerCase(),
   }));
   const correctCount = perQuestion.filter((p) => p.correct).length;
   const weakAreas = Array.from(
-    new Set(safeQuestions.filter((q) => !perQuestion.find((p) => p.questionId === q.id)?.correct).map((q) => q.topic)),
+    new Set(session.questions.filter((q) => !perQuestion.find((p) => p.questionId === q.id)?.correct).map((q) => q.topic)),
   );
 
   const topicTotals = new Map<string, { correct: number; total: number }>();
-  safeQuestions.forEach((q) => {
+  session.questions.forEach((q) => {
     const entry = topicTotals.get(q.topic) ?? { correct: 0, total: 0 };
     entry.total += 1;
     if (perQuestion.find((p) => p.questionId === q.id)?.correct) entry.correct += 1;
     topicTotals.set(q.topic, entry);
   });
   const topicBreakdown = Array.from(topicTotals.entries()).map(([topic, v]) => ({ topic, ...v }));
-  const scorePercent = Math.round((correctCount / safeQuestions.length) * 100);
+  const scorePercent = Math.round((correctCount / session.questions.length) * 100);
 
   const result = await assessmentStore.create({
     userId: req.userId!,
     kind: 'mock-test',
-    subject,
+    subject: session.subject,
     scorePercent,
     correctCount,
-    totalQuestions: safeQuestions.length,
+    totalQuestions: session.questions.length,
     timeSpentSeconds: Number(timeSpentSeconds) || 0,
     weakAreas,
     topicBreakdown,

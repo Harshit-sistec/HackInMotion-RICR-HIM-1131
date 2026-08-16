@@ -1,5 +1,4 @@
 import type { MockTest, MockTestConfig, MockTestResult, MockTestSubmission, Question } from '@/types';
-import { randomId } from '@/utils/async';
 import { fetchApi } from './api';
 
 const SECONDS_PER_QUESTION = 90;
@@ -9,16 +8,14 @@ export const mockTestService = {
     const data = (await fetchApi('/mocktest/generate', {
       method: 'POST',
       body: JSON.stringify(config),
-    })) as { questions: Omit<Question, 'id'>[] };
-
-    const questions: Question[] = data.questions.map((q) => ({ ...q, id: randomId('q') }));
+    })) as { testId: string; questions: Question[] };
 
     return {
-      id: randomId('test'),
+      id: data.testId,
       config,
-      questions,
+      questions: data.questions,
       createdAt: new Date().toISOString(),
-      timeLimitSeconds: questions.length * SECONDS_PER_QUESTION,
+      timeLimitSeconds: data.questions.length * SECONDS_PER_QUESTION,
     };
   },
 
@@ -34,8 +31,7 @@ export const mockTestService = {
     return (await fetchApi('/mocktest/submit', {
       method: 'POST',
       body: JSON.stringify({
-        subject: test.config.subject,
-        questions: test.questions.map((q) => ({ id: q.id, correctAnswer: q.correctAnswer, topic: q.topic })),
+        testId: test.id,
         answers: submission.answers,
         timeSpentSeconds,
       }),
