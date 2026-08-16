@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -25,6 +25,7 @@ import { Logo } from '@/components/ui/Logo';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
+import { useNotifications } from '@/store/NotificationContext';
 
 const NAV = [
   { to: '/app', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -41,18 +42,68 @@ const SECONDARY_NAV = [
   { to: '/app/settings', label: 'Settings', icon: SettingsIcon },
 ];
 
+const SEARCHABLE_PAGES = [...NAV, ...SECONDARY_NAV];
+
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { notifications, unreadCount, markAllRead } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
+
+  useEffect(() => {
+    setSearchOpen(false);
+    setNotifOpen(false);
+    setSearchQuery('');
+  }, [location.pathname]);
+
+  const searchResults = searchQuery.trim()
+    ? SEARCHABLE_PAGES.filter((p) => p.label.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : SEARCHABLE_PAGES;
+
+  const openSearch = () => {
+    setSearchOpen(true);
+    setNotifOpen(false);
+    setTimeout(() => searchInputRef.current?.focus(), 0);
+  };
+
+  const goToSearchResult = (to: string) => {
+    navigate(to);
+    setSearchOpen(false);
+    setSearchQuery('');
+  };
+
+  const toggleNotifications = () => {
+    setNotifOpen((open) => {
+      const next = !open;
+      if (next) {
+        setSearchOpen(false);
+        markAllRead();
+      }
+      return next;
+    });
+  };
+
+  function timeAgo(iso: string): string {
+    const seconds = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  }
 
   const SidebarContent = (
     <div className="flex h-full flex-col justify-between py-6">
@@ -217,27 +268,113 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
           <div className="flex items-center gap-4">
             {/* Search Action */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#F1F5F9] text-[var(--nova-text-secondary)] border border-transparent dark:bg-white/5 dark:text-[#CBD5E1] dark:hover:text-white"
-            >
-              <Search size={15} />
-            </motion.button>
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={openSearch}
+                aria-label="Search"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#F1F5F9] text-[var(--nova-text-secondary)] border border-transparent dark:bg-white/5 dark:text-[#CBD5E1] dark:hover:text-white"
+              >
+                <Search size={15} />
+              </motion.button>
+
+              <AnimatePresence>
+                {searchOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setSearchOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="absolute right-0 top-11 z-50 w-72 rounded-2xl border border-[var(--nova-border)] bg-[var(--nova-surface)] p-3 shadow-card dark:border-[#1E293B] dark:bg-[#111827]"
+                    >
+                      <input
+                        ref={searchInputRef}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search pages…"
+                        className="w-full rounded-xl border border-[var(--nova-border)] bg-transparent px-3 py-2 text-sm text-[var(--nova-text)] outline-none focus:border-[var(--nova-primary)] dark:border-[#1E293B] dark:text-[#F8FAFC]"
+                      />
+                      <div className="mt-2 max-h-60 space-y-1 overflow-y-auto">
+                        {searchResults.length === 0 && (
+                          <p className="px-2 py-3 text-center text-xs text-[var(--nova-text-secondary)]">
+                            No pages match "{searchQuery}".
+                          </p>
+                        )}
+                        {searchResults.map((page) => (
+                          <button
+                            key={page.to}
+                            onClick={() => goToSearchResult(page.to)}
+                            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm text-[var(--nova-text)] hover:bg-slate-100 dark:text-[#CBD5E1] dark:hover:bg-white/5"
+                          >
+                            <page.icon size={15} className="text-[var(--nova-text-secondary)]" />
+                            {page.label}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Notifications Action */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#F1F5F9] text-[var(--nova-text-secondary)] border border-transparent dark:bg-white/5 dark:text-[#CBD5E1] dark:hover:text-white"
-            >
-              <Bell size={15} />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--nova-primary)] border border-white dark:border-[#111827]" />
-            </motion.button>
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={toggleNotifications}
+                aria-label="Notifications"
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#F1F5F9] text-[var(--nova-text-secondary)] border border-transparent dark:bg-white/5 dark:text-[#CBD5E1] dark:hover:text-white"
+              >
+                <Bell size={15} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--nova-primary)] border border-white dark:border-[#111827]" />
+                )}
+              </motion.button>
+
+              <AnimatePresence>
+                {notifOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="absolute right-0 top-11 z-50 w-80 rounded-2xl border border-[var(--nova-border)] bg-[var(--nova-surface)] p-3 shadow-card dark:border-[#1E293B] dark:bg-[#111827]"
+                    >
+                      <p className="mb-2 px-1 text-[10px] font-bold tracking-widest text-[var(--nova-text-muted)] uppercase">
+                        Notifications
+                      </p>
+                      <div className="max-h-72 space-y-1 overflow-y-auto">
+                        {notifications.length === 0 && (
+                          <p className="px-2 py-3 text-center text-xs text-[var(--nova-text-secondary)]">
+                            You're all caught up.
+                          </p>
+                        )}
+                        {notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className="rounded-xl px-2.5 py-2 text-sm text-[var(--nova-text)] hover:bg-slate-100 dark:text-[#CBD5E1] dark:hover:bg-white/5"
+                          >
+                            <p>{n.message}</p>
+                            <p className="mt-0.5 text-[10px] text-[var(--nova-text-secondary)]">{timeAgo(n.createdAt)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
 
             <div className="h-px w-4 bg-[var(--nova-border)] dark:bg-white/10" />
 
             {/* Quick Profile avatar view */}
-            <Avatar user={user} size={32} className="text-xs border border-[var(--nova-border)] shadow-soft" />
+            <Link to="/app/profile" aria-label="Go to profile">
+              <Avatar user={user} size={32} className="text-xs border border-[var(--nova-border)] shadow-soft" />
+            </Link>
           </div>
         </header>
 

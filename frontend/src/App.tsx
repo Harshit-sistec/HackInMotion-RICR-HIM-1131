@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/store/AuthContext';
 import { AppDataProvider } from '@/store/AppDataContext';
+import { NotificationProvider } from '@/store/NotificationContext';
 import { ThemeProvider } from '@/store/ThemeContext';
 import { ToastProvider } from '@/store/ToastContext';
 
@@ -149,11 +150,13 @@ export default function App() {
       <ThemeProvider>
         <ToastProvider>
           <AuthProvider>
-            <AppDataProvider>
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-            </AppDataProvider>
+            <NotificationProvider>
+              <AppDataProvider>
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+              </AppDataProvider>
+            </NotificationProvider>
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>
