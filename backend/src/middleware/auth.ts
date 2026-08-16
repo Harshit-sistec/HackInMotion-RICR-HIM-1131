@@ -7,7 +7,7 @@ export interface AuthedRequest extends Request {
 }
 
 export function signToken(userId: string): string {
-  return jwt.sign({ sub: userId }, requireJwtSecret(), { expiresIn: '7d' });
+  return jwt.sign({ sub: userId }, requireJwtSecret(), { expiresIn: '7d', algorithm: 'HS256' });
 }
 
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): void {
@@ -20,7 +20,7 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
   }
 
   try {
-    const payload = jwt.verify(token, requireJwtSecret()) as { sub: string };
+    const payload = jwt.verify(token, requireJwtSecret(), { algorithms: ['HS256'] }) as { sub: string };
     req.userId = payload.sub;
     next();
   } catch {

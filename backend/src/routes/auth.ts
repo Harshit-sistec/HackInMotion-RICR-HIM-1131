@@ -32,7 +32,7 @@ function toBackendUser(user: StoredUser) {
   };
 }
 
-authRouter.post('/signup', async (req, res) => {
+authRouter.post('/signup', rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }), async (req, res) => {
   const { email, password, options } = req.body ?? {};
   const fullName = options?.data?.full_name?.trim();
 
@@ -40,8 +40,8 @@ authRouter.post('/signup', async (req, res) => {
     res.status(400).json({ error: { message: 'Email is required.' } });
     return;
   }
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    res.status(400).json({ error: { message: 'Password must be at least 6 characters.' } });
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    res.status(400).json({ error: { message: 'Password must be at least 8 characters.' } });
     return;
   }
 
@@ -54,7 +54,7 @@ authRouter.post('/signup', async (req, res) => {
   }
 });
 
-authRouter.post('/signin', async (req, res) => {
+authRouter.post('/signin', rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }), async (req, res) => {
   const { email, password } = req.body ?? {};
 
   if (!email || !password) {
@@ -147,8 +147,8 @@ authRouter.post('/reset-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 10
     res.status(400).json({ error: { message: 'A reset token is required.' } });
     return;
   }
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    res.status(400).json({ error: { message: 'Password must be at least 6 characters.' } });
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    res.status(400).json({ error: { message: 'Password must be at least 8 characters.' } });
     return;
   }
 
