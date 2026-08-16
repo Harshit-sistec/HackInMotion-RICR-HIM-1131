@@ -31,3 +31,26 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     html: `<p>We received a request to reset your Cadence password.</p><p><a href="${resetUrl}">Reset your password</a> (expires in 15 minutes).</p><p>If you didn't request this, you can safely ignore this email.</p>`,
   });
 }
+
+export interface ReminderSession {
+  topic: string;
+  subject: string;
+  estimatedMinutes: number;
+}
+
+export async function sendStudyReminderEmail(to: string, session: ReminderSession): Promise<boolean> {
+  const t = getTransporter();
+  if (!t) {
+    console.log(`[nova-server] SMTP not configured. Skipping study reminder email for ${to}.`);
+    return false;
+  }
+
+  await t.sendMail({
+    from: config.smtpFrom || config.smtpUser,
+    to,
+    subject: `Study reminder: ${session.topic}`,
+    text: `You have a study session scheduled for today.\n\nSubject: ${session.subject}\nTopic: ${session.topic}\nEstimated time: ${session.estimatedMinutes} minutes\n\nOpen Cadence to get started: ${config.clientOrigin}/app/plan`,
+    html: `<p>You have a study session scheduled for today.</p><p><strong>Subject:</strong> ${session.subject}<br/><strong>Topic:</strong> ${session.topic}<br/><strong>Estimated time:</strong> ${session.estimatedMinutes} minutes</p><p><a href="${config.clientOrigin}/app/plan">Open your study plan</a></p>`,
+  });
+  return true;
+}

@@ -1,6 +1,7 @@
 import http from 'node:http';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { config } from './config.js';
 import { authRouter } from './routes/auth.js';
 import { documentsRouter } from './routes/documents.js';
@@ -12,11 +13,13 @@ import { goalsRouter } from './routes/goals.js';
 import { progressRouter } from './routes/progress.js';
 import { getDb } from './lib/db.js';
 import { initSocket } from './lib/socket.js';
+import { sendDueStudyReminders } from './lib/reminders.js';
 
 const app = express();
 const httpServer = http.createServer(app);
 initSocket(httpServer);
 
+app.use(helmet());
 app.use(cors({ origin: config.clientOrigin }));
 app.use(express.json({ limit: '1mb' }));
 
@@ -72,6 +75,15 @@ async function start() {
         'Check MONGODB_URI in server/.env and that a MongoDB server is running.',
       err instanceof Error ? err.message : err,
     );
+  }
+
+  if (config.smtpHost) {
+    const REMINDER_INTERVAL_MS = 60 * 60 * 1000;
+    sendDueStudyReminders().catch((err) => console.error('Study reminder sweep failed:', err));
+    setInterval(() => {
+      sendDueStudyReminders().catch((err) => console.error('Study reminder sweep failed:', err));
+    }, REMINDER_INTERVAL_MS);
+    console.log('[nova-server] Study reminder emails enabled (hourly sweep).');
   }
 
   httpServer.listen(config.port, () => {

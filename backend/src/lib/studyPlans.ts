@@ -28,6 +28,7 @@ export interface StoredStudySession {
   conceptsTotal: number;
   conceptsDone: number;
   completedAt?: string;
+  reminderSentAt?: string;
 }
 
 async function plansCollection() {
@@ -123,5 +124,26 @@ export const sessionStore = {
   async deleteByPlan(planId: string): Promise<void> {
     const col = await sessionsCollection();
     await col.deleteMany({ planId });
+  },
+
+  async findDueForReminder(): Promise<StoredStudySession[]> {
+    const col = await sessionsCollection();
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setUTCDate(endOfDay.getUTCDate() + 1);
+
+    return col
+      .find({
+        status: 'upcoming',
+        reminderSentAt: { $exists: false },
+        date: { $gte: startOfDay.toISOString(), $lt: endOfDay.toISOString() },
+      })
+      .toArray();
+  },
+
+  async markReminderSent(id: string): Promise<void> {
+    const col = await sessionsCollection();
+    await col.updateOne({ id }, { $set: { reminderSentAt: new Date().toISOString() } });
   },
 };
