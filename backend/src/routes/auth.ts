@@ -112,8 +112,14 @@ authRouter.post('/forgot-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 5
     if (user) {
       const token = await passwordResetTokenStore.create(user.id);
       const resetUrl = `${config.clientOrigin}/reset-password?token=${token}`;
-      await sendPasswordResetEmail(user.email, resetUrl);
-      if (!config.smtpHost) devResetUrl = resetUrl;
+      if (!config.smtpHost) {
+        devResetUrl = resetUrl;
+      } else {
+        // Fire-and-forget: don't make the caller wait on a live SMTP round-trip.
+        sendPasswordResetEmail(user.email, resetUrl).catch((err) =>
+          console.error('Failed to send password reset email:', err instanceof Error ? err.message : err),
+        );
+      }
     }
   } catch (err) {
     console.error('Forgot-password request failed:', err);

@@ -11,6 +11,9 @@ function getTransporter() {
       port: config.smtpPort,
       secure: config.smtpPort === 465,
       auth: config.smtpUser ? { user: config.smtpUser, pass: config.smtpPass } : undefined,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     });
   }
   return transporter;
