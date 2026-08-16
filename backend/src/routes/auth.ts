@@ -103,8 +103,7 @@ authRouter.post('/forgot-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 5
     return;
   }
 
-  // Only populated when SMTP isn't configured, so the link is still reachable in local dev.
-  // Never set once real SMTP credentials are added — see lib/email.ts.
+  // Only populated when RESEND_API_KEY isn't configured, so the link is still reachable in local dev.
   let devResetUrl: string | undefined;
 
   try {
@@ -112,10 +111,10 @@ authRouter.post('/forgot-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 5
     if (user) {
       const token = await passwordResetTokenStore.create(user.id);
       const resetUrl = `${config.clientOrigin}/reset-password?token=${token}`;
-      if (!config.smtpHost) {
+      if (!config.resendApiKey) {
         devResetUrl = resetUrl;
       } else {
-        // Fire-and-forget: don't make the caller wait on a live SMTP round-trip.
+        // Fire-and-forget: don't make the caller wait on the email API round-trip.
         sendPasswordResetEmail(user.email, resetUrl).catch((err) =>
           console.error('Failed to send password reset email:', err instanceof Error ? err.message : err),
         );

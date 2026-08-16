@@ -4,7 +4,7 @@ import { sendStudyReminderEmail } from './email.js';
 import { config } from '../config.js';
 
 export async function sendDueStudyReminders(): Promise<void> {
-  if (!config.smtpHost) return;
+  if (!config.resendApiKey) return;
 
   const due = await sessionStore.findDueForReminder();
   if (due.length === 0) return;

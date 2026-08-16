@@ -69,7 +69,7 @@ it as the student studies:
 - `jsonwebtoken` + `bcryptjs` for auth
 - `google-auth-library` for Google Sign-In verification
 - `@google/generative-ai` (Gemini) for all AI features
-- `nodemailer` for password-reset emails (any SMTP provider)
+- [Resend](https://resend.com) HTTP API for password-reset and study-reminder emails
 - `multer`, `pdf-parse`, `mammoth` for document upload/text extraction
 
 **Database**
@@ -156,11 +156,8 @@ None of these are committed to git — `.env` is gitignored in both `frontend/` 
 | `MONGODB_URI`        | Yes      | e.g. `mongodb://localhost:27017/`                                                                         |
 | `MONGODB_DB_NAME`    | No       | Defaults to `nova`                                                                                         |
 | `GOOGLE_CLIENT_ID`   | Optional | OAuth client ID (Web application type) — same value as `VITE_GOOGLE_CLIENT_ID`                            |
-| `SMTP_HOST`          | Optional | SMTP server for sending password-reset emails. Left blank, the reset link is logged to the server console and shown directly in the app instead of emailed. |
-| `SMTP_PORT`          | Optional | Defaults to `587`                                                                                         |
-| `SMTP_USER`          | Optional | SMTP auth username                                                                                        |
-| `SMTP_PASS`          | Optional | SMTP auth password / app password                                                                         |
-| `SMTP_FROM`          | Optional | "From" header for reset emails                                                                            |
+| `RESEND_API_KEY`     | Optional | [resend.com/api-keys](https://resend.com/api-keys) — sends password-reset and study-reminder emails over HTTPS. Left blank, the reset link is logged to the server console and shown directly in the app instead of emailed. |
+| `EMAIL_FROM`         | Optional | "From" header for emails. Defaults to `Cadence <onboarding@resend.dev>` (Resend's sandbox sender — only deliverable to your own Resend account email until you verify a custom domain). |
 
 ## API Documentation
 
@@ -296,7 +293,7 @@ flowchart LR
     Gemini[Google Gemini API]
     YouTube[YouTube Data API]
     GoogleOAuth[Google OAuth]
-    SMTP[SMTP / nodemailer]
+    Resend[Resend Email API]
 
     UI -->|HTTPS fetch| API
     SocketClient <-->|WebSocket, JWT-authenticated| SocketServer
@@ -306,11 +303,11 @@ flowchart LR
     API --> Gemini
     API --> YouTube
     API --> GoogleOAuth
-    API --> SMTP
+    API --> Resend
     SocketServer --> DB
 ```
 
-The frontend never talks to Gemini, YouTube, MongoDB, or SMTP directly — everything is proxied
+The frontend never talks to Gemini, YouTube, MongoDB, or Resend directly — everything is proxied
 through the backend so API keys and database credentials stay server-side.
 
 ## Screenshots

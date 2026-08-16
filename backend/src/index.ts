@@ -77,7 +77,7 @@ async function start() {
     );
   }
 
-  if (config.smtpHost) {
+  if (config.resendApiKey) {
     const REMINDER_INTERVAL_MS = 60 * 60 * 1000;
     sendDueStudyReminders().catch((err) => console.error('Study reminder sweep failed:', err));
     setInterval(() => {
