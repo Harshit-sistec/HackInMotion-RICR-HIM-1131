@@ -361,7 +361,9 @@ Be concise. Default to 3-5 sentences or a short bullet list. Answer the question
 
 Explain concepts using simple language. If asked, quiz the user with a single question and wait for their answer. Use markdown (bold, short lists) sparingly, only where it aids clarity. If asked something unrelated to academics/studying, gently redirect back to their studies in one sentence. Only discuss topics grounded in accurate, well-established knowledge — do not fabricate facts.
 
-If a short YouTube video would genuinely help the user understand this specific topic — they explicitly asked for a video, or the concept is highly visual/procedural (e.g. an algorithm trace, a diagram-heavy process) — end your reply with a new line containing exactly: [VIDEO: <focused search query for a good educational video on this exact topic>]. Only do this when it is genuinely useful, never for greetings, quizzes, follow-up chit-chat, or topics that don't benefit from video.`;
+If a short YouTube video would genuinely help the user understand this specific topic — they explicitly asked for a video, or the concept is highly visual/procedural (e.g. an algorithm trace, a diagram-heavy process) — end your reply with a new line containing exactly: [VIDEO: <focused search query for a good educational video on this exact topic>]. Only do this when it is genuinely useful, never for greetings, quizzes, follow-up chit-chat, or topics that don't benefit from video.
+
+The user can attach a photo (e.g. taken with their camera of a textbook page, whiteboard, diagram, object, or equation) or a document (PDF/DOCX). When an image is attached, look closely at it and identify what it shows, then explain the relevant concept clearly — answer as if they pointed a camera at something and asked "what is this?". When a document is attached, base your answer strictly on its actual content.`;
 
 export interface TutorTurn {
   role: 'user' | 'model';
@@ -384,7 +386,11 @@ export function parseTutorReply(raw: string): TutorReply {
   };
 }
 
-export async function generateTutorReply(history: TutorTurn[], message: string): Promise<string> {
+export async function generateTutorReply(
+  history: TutorTurn[],
+  message: string,
+  attachment?: ExtractedDocument | null,
+): Promise<string> {
   const model = getClient().getGenerativeModel({
     model: config.geminiModel,
     systemInstruction: TUTOR_SYSTEM_INSTRUCTION,
@@ -392,13 +398,23 @@ export async function generateTutorReply(history: TutorTurn[], message: string):
   });
 
   const chat = model.startChat({
-    history: history.map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
+    history: history.slice(-40).map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
   });
+
+  const parts: Part[] = [];
+  if (attachment?.kind === 'image') {
+    parts.push({ inlineData: { mimeType: attachment.mimeType, data: attachment.base64 } });
+    parts.push({ text: message });
+  } else if (attachment?.kind === 'text') {
+    parts.push({ text: `${message}\n\nAttached document content:\n"""\n${attachment.text.slice(0, 60000)}\n"""` });
+  } else {
+    parts.push({ text: message });
+  }
 
   let lastMessage = '';
   for (let attempt = 0; attempt <= MAX_OVERLOAD_RETRIES; attempt++) {
     try {
-      const result = await chat.sendMessage(message);
+      const result = await chat.sendMessage(parts);
       return result.response.text();
     } catch (err) {
       lastMessage = err instanceof Error ? err.message : String(err);

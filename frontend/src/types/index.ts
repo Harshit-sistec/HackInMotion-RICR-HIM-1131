@@ -107,6 +107,16 @@ export interface ChatMessage {
   timestamp: string;
   isTyping?: boolean;
   video?: ChatVideo;
+  attachmentName?: string;
+  attachmentPreviewUrl?: string;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  preview: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Achievement {
