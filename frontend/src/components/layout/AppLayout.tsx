@@ -111,7 +111,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <div>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} px-6 h-12 mb-6`}>
           {collapsed ? (
-            <Logo size="sm" to="/app" className="animate-float" />
+            <Logo size="sm" to="/app" className="animate-float" iconOnly />
           ) : (
             <div className="flex items-center gap-2">
               <Logo to="/app" className="animate-float" />
@@ -261,7 +261,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         className={`transition-all duration-300 ${collapsed ? 'lg:pl-[112px]' : 'lg:pl-[312px]'} pr-0 lg:pr-6 pt-4 pb-6`}
       >
         {/* Desktop/Laptop Header Bar */}
-        <header className="hidden lg:flex h-16 items-center justify-between border border-[var(--nova-border)] bg-white/92 rounded-3xl px-6 mb-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:border-[#1E293B] dark:bg-[#111827]/92 backdrop-blur-md">
+        <header className="relative z-30 hidden lg:flex h-16 items-center justify-between border border-[var(--nova-border)] bg-white/92 rounded-3xl px-6 mb-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:border-[#1E293B] dark:bg-[#111827]/92 backdrop-blur-md">
           <span className="text-[10px] font-bold tracking-widest text-[var(--nova-text-secondary)] dark:text-[#94A3B8] uppercase">
             Cadence Learning Hub
           </span>
